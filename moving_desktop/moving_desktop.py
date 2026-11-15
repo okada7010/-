@@ -261,6 +261,7 @@ class WallpaperHost:
     def fallback(self, root):
         """埋め込みできない場合：最背面の全画面ウィンドウとして表示"""
         try:
+            self._setup_api()
             hwnd = self.u32.GetParent(root.winfo_id()) or root.winfo_id()
             if self.u32.GetParent(hwnd):
                 self.u32.SetParent(hwnd, None)
