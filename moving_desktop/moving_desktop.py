@@ -124,7 +124,7 @@ def pick_font(root):
 # Windows：壁紙（デスクトップアイコンの裏）への埋め込み
 # ============================================================
 class WallpaperHost:
-    def __init__(self):
+    def __init__(self, method="auto"):
         import ctypes
         from ctypes import wintypes
         self.ct = ctypes
@@ -133,6 +133,7 @@ class WallpaperHost:
         self.embedded = False
         self.keep_bottom = False
         self.wallpaper_path = None
+        self.method = method
 
     @staticmethod
     def set_dpi_aware():
@@ -229,21 +230,33 @@ class WallpaperHost:
         WS_CHILD, WS_POPUP = 0x40000000, 0x80000000
         WS_EX_LAYERED = 0x00080000
         SWP_NOMOVE, SWP_NOSIZE, SWP_NOACTIVATE = 0x2, 0x1, 0x10
+        method = self.method
+        if method == "auto":
+            method = "progman" if mode == "24H2" else "classic"
+        log(f"embed: method={method}")
         try:
-            if mode == "24H2":
-                # 子ウィンドウ化＋レイヤードにして Progman の中で
+            if mode == "24H2" and method in ("progman", "progman-nolayer"):
+                # 子ウィンドウにして Progman の中で
                 # 「アイコン(DefView)の下・壁紙(WorkerW)の上」に置く
                 st = self.get_style(hwnd, GWL_STYLE)
                 self.set_style(hwnd, GWL_STYLE, (st & ~WS_POPUP) | WS_CHILD)
-                ex = self.get_style(hwnd, GWL_EXSTYLE)
-                self.set_style(hwnd, GWL_EXSTYLE, ex | WS_EX_LAYERED)
-                u32.SetLayeredWindowAttributes(hwnd, 0, 255, 0x2)  # LWA_ALPHA
+                if method == "progman":
+                    ex = self.get_style(hwnd, GWL_EXSTYLE)
+                    self.set_style(hwnd, GWL_EXSTYLE, ex | WS_EX_LAYERED)
+                    u32.SetLayeredWindowAttributes(hwnd, 0, 255, 0x2)  # LWA_ALPHA
                 u32.SetParent(hwnd, progman)
                 u32.MoveWindow(hwnd, -vx, -vy, w, h, True)
                 u32.SetWindowPos(hwnd, defview, 0, 0, 0, 0,
                                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE)
                 u32.SetWindowPos(workerw, hwnd, 0, 0, 0, 0,
                                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE)
+                self.embedded = True
+            elif mode == "24H2" and method == "workerw":
+                # 壁紙を描いている WorkerW の子にする
+                st = self.get_style(hwnd, GWL_STYLE)
+                self.set_style(hwnd, GWL_STYLE, (st & ~WS_POPUP) | WS_CHILD)
+                u32.SetParent(hwnd, workerw)
+                u32.MoveWindow(hwnd, 0, 0, w, h, True)
                 self.embedded = True
             elif mode == "classic":
                 u32.SetParent(hwnd, workerw)
@@ -256,7 +269,31 @@ class WallpaperHost:
         if not self.embedded:
             self.fallback(root)
         log(f"embedded={self.embedded}")
+        root.after(1500, lambda: self.dump(root))
         return self.embedded
+
+    def dump(self, root):
+        """診断用：自分の窓の状態と、Progman の子ウィンドウの重なり順をログに出す"""
+        try:
+            u32, ct, wt = self.u32, self.ct, self.wt
+            hwnd = u32.GetParent(root.winfo_id()) or root.winfo_id()
+            rc = wt.RECT()
+            u32.GetWindowRect(hwnd, ct.byref(rc))
+            log(f"self: hwnd={hwnd} visible={u32.IsWindowVisible(hwnd)} "
+                f"rect=({rc.left},{rc.top},{rc.right},{rc.bottom}) parent={u32.GetParent(hwnd)}")
+            progman = u32.FindWindowW("Progman", None)
+            u32.GetWindow.restype = wt.HWND
+            u32.GetWindow.argtypes = [wt.HWND, wt.UINT]
+            child = u32.GetWindow(progman, 5)  # GW_CHILD（重なり順の上から）
+            order = []
+            buf = ct.create_unicode_buffer(64)
+            while child:
+                u32.GetClassNameW(child, buf, 64)
+                order.append(f"{buf.value}({child},vis={u32.IsWindowVisible(child)})")
+                child = u32.GetWindow(child, 2)  # GW_HWNDNEXT
+            log("progman children (top->bottom): " + " > ".join(order))
+        except Exception as e:
+            log(f"dump failed: {e!r}")
 
     def fallback(self, root):
         """埋め込みできない場合：最背面の全画面ウィンドウとして表示"""
@@ -667,6 +704,11 @@ def main():
     ap.add_argument("--size", help="ウィンドウサイズ 例: 1600x900（--window時）")
     ap.add_argument("--no-embed", action="store_true",
                     help="壁紙に埋め込まず、最背面の全画面ウィンドウとして表示")
+    ap.add_argument("--method", default="auto",
+                    choices=["auto", "progman", "progman-nolayer", "workerw"],
+                    help="埋め込み方式（見えない場合に切り替え）")
+    ap.add_argument("--label", help="画面中央に大きく表示する文字（方式テスト用）")
+    ap.add_argument("--duration", type=float, help="指定秒数で自動終了（方式テスト用）")
     args = ap.parse_args()
 
     wallpaper = (args.wallpaper or (IS_WIN and not args.window)) and IS_WIN
@@ -681,7 +723,7 @@ def main():
     root.configure(bg=rgb_hex(BG_TOP))
 
     if wallpaper:
-        host = WallpaperHost()
+        host = WallpaperHost(args.method)
         _, _, w, h = host.virtual_screen()
         root.overrideredirect(True)
         root.geometry(f"{w}x{h}+0+0")
@@ -695,7 +737,12 @@ def main():
         root.resizable(False, False)
         root.bind("<Escape>", lambda e: root.quit())
 
-    MovingDesktop(root, w, h)
+    app = MovingDesktop(root, w, h)
+    if args.label:
+        app.cv.create_text(w / 2, h / 2, text=args.label, fill="#ffffff",
+                           font=app.F(90, "bold"), tags="panel")
+    if args.duration:
+        root.after(int(args.duration * 1000), root.quit)
 
     if host:
         def do_embed():
