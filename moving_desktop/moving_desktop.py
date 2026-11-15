@@ -273,9 +273,11 @@ class WallpaperHost:
 
     def restore_wallpaper(self):
         # 元の壁紙を再設定してデスクトップを再描画
+        # 埋め込んだ場合だけ、取得できた壁紙パスで再設定する（未取得時に壁紙を消さないため）
+        if not self.embedded or self.wallpaper_path is None:
+            return
         try:
-            path = self.wallpaper_path or ""
-            self.u32.SystemParametersInfoW(0x0014, 0, path, 0)  # SPI_SETDESKWALLPAPER
+            self.u32.SystemParametersInfoW(0x0014, 0, self.wallpaper_path, 0)  # SPI_SETDESKWALLPAPER
         except Exception:
             pass
 
