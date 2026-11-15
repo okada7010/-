@@ -11,6 +11,9 @@ from streamlit_paste_button import paste_image_button
 from datetime import date
 import io
 import os
+import shutil
+import subprocess
+import tempfile
 
 # iPhone の HEIC 写真にも対応（ライブラリがあれば）
 try:
@@ -359,8 +362,50 @@ def build_excel():
     return out
 
 
+# =====================================================================
+# PDF 出力（LibreOffice で Excel を変換）
+# =====================================================================
+def find_soffice():
+    for name in ("soffice", "libreoffice"):
+        path = shutil.which(name)
+        if path:
+            return path
+    for path in (r"C:\Program Files\LibreOffice\program\soffice.exe",
+                 r"C:\Program Files (x86)\LibreOffice\program\soffice.exe"):
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def excel_to_pdf(xlsx_bytes):
+    """Excel のバイト列を PDF に変換する。変換できなければ None を返す"""
+    soffice = find_soffice()
+    if not soffice:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        src = os.path.join(tmp, "tenken.xlsx")
+        with open(src, "wb") as f:
+            f.write(xlsx_bytes)
+        # 同時実行でぶつからないよう、変換ごとに専用のプロファイルを使う
+        profile = "file:///" + os.path.join(tmp, "profile").replace("\\", "/").lstrip("/")
+        try:
+            subprocess.run(
+                [soffice, f"-env:UserInstallation={profile}", "--headless",
+                 "--convert-to", "pdf", "--outdir", tmp, src],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180, check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        pdf = os.path.join(tmp, "tenken.pdf")
+        if not os.path.exists(pdf):
+            return None
+        with open(pdf, "rb") as f:
+            return f.read()
+
+
 st.divider()
-if st.button("📄 点検表（Excel）を作成", type="primary", width="stretch"):
+if st.button("📄 点検表（Excel・PDF）を作成", type="primary", width="stretch"):
+    ss.pop("outputs", None)
     errors = []
     if not inspector:
         errors.append("点検実施者を入力してください。")
@@ -373,6 +418,26 @@ if st.button("📄 点検表（Excel）を作成", type="primary", width="stretc
         for e in errors:
             st.error(e)
     else:
-        out = build_excel()
-        fname = f"{date_val.strftime('%Y%m%d')}_{vehicle.replace('　', '')}_車両点検表.xlsx"
-        st.download_button("📥 ダウンロード", out.getvalue(), fname, width="stretch")
+        with st.spinner("点検表を作成しています…（PDF 変換に数十秒かかることがあります）"):
+            xlsx = build_excel().getvalue()
+            pdf = excel_to_pdf(xlsx)
+        base = f"{date_val.strftime('%Y%m%d')}_{vehicle.replace('　', '')}_車両点検表"
+        # ダウンロードで画面が再描画されても両方のボタンが残るよう保存しておく
+        ss.outputs = {"base": base, "xlsx": xlsx, "pdf": pdf}
+
+if "outputs" in ss:
+    o = ss.outputs
+    st.caption("入力内容を変更した場合は、もう一度「作成」を押してください。")
+    d1, d2 = st.columns(2)
+    d1.download_button(
+        "📥 Excel をダウンロード", o["xlsx"], f"{o['base']}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        width="stretch", key="dl_xlsx",
+    )
+    if o["pdf"]:
+        d2.download_button(
+            "📥 PDF をダウンロード", o["pdf"], f"{o['base']}.pdf",
+            mime="application/pdf", width="stretch", key="dl_pdf",
+        )
+    else:
+        d2.warning("PDF を作成できませんでした（変換ツールが見つかりません）。Excel をご利用ください。")
