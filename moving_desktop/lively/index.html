@@ -22,9 +22,14 @@
 
 // ---------- 設定 ----------
 const CFG = {
-  particles: 70,        // 背景の粒の数
+  fps: 30,              // 描画の上限（下げるほど軽い。15～60）
+  particles: 60,        // 背景の粒の数（減らすほど軽い）
   linkDist: 150,        // 粒同士を線で結ぶ距離（1080p基準）
   panelSide: "right",   // "right" / "left"
+  panelScale: 0.85,     // パネルの大きさ（1.0 = 標準）
+  panelMarginX: 130,    // 画面の端からの距離（px）※右端のアイコン列を避ける
+  panelMarginY: 80,     // 画面の上からの距離（px）※上段のアイコンを避ける
+  panelAlpha: 0.88,     // パネルの不透明度
   history: 60,          // グラフの点数（Livelyは約1秒ごとに送信 → 60秒）
 };
 
@@ -107,19 +112,20 @@ function loadColor(v) {
 // ---------- 描画準備 ----------
 const cv = document.getElementById("c");
 const ctx = cv.getContext("2d");
-let W = 0, H = 0, s = 1, parts = [], bgGrad;
+let W = 0, H = 0, s = 1, bs = 1, parts = [], bgGrad, panelH = 800;
 
 function resize() {
   const dpr = window.devicePixelRatio || 1;
   W = window.innerWidth; H = window.innerHeight;
   cv.width = W * dpr; cv.height = H * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  s = H / 1080;
+  bs = H / 1080;                                        // 背景用
+  s = Math.min(H / 1080, W / 1920) * CFG.panelScale;    // パネル用
   bgGrad = ctx.createLinearGradient(0, 0, 0, H);
   bgGrad.addColorStop(0, rgb(C.bgTop)); bgGrad.addColorStop(1, rgb(C.bgBottom));
   parts = Array.from({ length: CFG.particles }, () => ({
     x: Math.random() * W, y: Math.random() * H,
-    vx: Math.random() * 2 - 1, vy: Math.random() * 2 - 1, r: (2 + Math.random() * 2.5) * s,
+    vx: Math.random() * 2 - 1, vy: Math.random() * 2 - 1, r: (2 + Math.random() * 2.5) * bs,
   }));
 }
 window.addEventListener("resize", resize);
@@ -139,9 +145,9 @@ function text(t, x, y, size, color, weight = "normal", align = "left", base = "t
 // ---------- 背景 ----------
 function drawBackground(dt) {
   ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
-  const speed = (0.4 + 2.6 * S.cpu / 100) * s * dt * 30;
+  const speed = (0.4 + 2.6 * S.cpu / 100) * bs * dt * 30;
   const pc = rgb(loadColor(S.cpu));
-  const ld = CFG.linkDist * s;
+  const ld = CFG.linkDist * bs;
   for (const p of parts) {
     p.x += p.vx * speed; p.y += p.vy * speed;
     if (p.x < 0 || p.x > W) { p.vx *= -1; p.x = Math.min(Math.max(p.x, 0), W); }
@@ -206,12 +212,12 @@ function sectionTitle(x0, x1, y, title, legends) {
 }
 
 function drawPanel() {
-  const pw = 460 * s, m = 40 * s, pad = 26 * s;
-  const x0 = CFG.panelSide === "left" ? m : W - pw - m, y0 = 40 * s;
+  const pw = 460 * s, pad = 26 * s;
+  const x0 = CFG.panelSide === "left" ? CFG.panelMarginX : W - pw - CFG.panelMarginX;
+  const y0 = CFG.panelMarginY;
   const ix0 = x0 + pad, ix1 = x0 + pw - pad, iw = ix1 - ix0;
-  const panelH = 840 * s;
 
-  ctx.fillStyle = "rgba(13,21,48,0.92)"; rr(x0, y0, pw, panelH, 22 * s); ctx.fill();
+  ctx.fillStyle = `rgba(13,21,48,${CFG.panelAlpha})`; rr(x0, y0, pw, panelH, 22 * s); ctx.fill();
   ctx.strokeStyle = C.edge; ctx.lineWidth = 2 * s; ctx.stroke();
 
   let y = y0 + pad;
@@ -254,27 +260,29 @@ function drawPanel() {
   text(`↑ ${uv} ${uu}`, ix0 + iw / 2, y, 17, C.up, "bold");
   y += 32 * s;
   if (S.nameNet) text(S.nameNet.slice(0, 48), ix0, y, 11, C.sub);
-  y += 34 * s;
+  y += 30 * s;
 
-  // CPU / GPU 名
-  text("ハードウェア", ix0, y, 13, C.text, "bold");
-  y += 26 * s;
+  // CPU 名 と GPU 使用率
   text("CPU  " + (S.nameCpu || "-").slice(0, 44), ix0, y, 11, C.sub);
-  y += 20 * s;
-  text("GPU  " + (S.nameGpu || "-").slice(0, 44), ix0, y, 11, C.sub);
-  y += 26 * s;
-  // GPU バー
-  ctx.fillStyle = C.track; rr(ix0, y, iw, 10 * s, 5 * s); ctx.fill();
-  if (S.gpu > 0.5) { ctx.fillStyle = C.gpu; rr(ix0, y, iw * Math.min(1, S.gpu / 100), 10 * s, 5 * s); ctx.fill(); }
+  y += 24 * s;
+  text("GPU 使用率", ix0, y, 11, C.gpu);
+  ctx.fillStyle = C.track; rr(ix0 + 80 * s, y + 3 * s, iw - 80 * s, 9 * s, 4.5 * s); ctx.fill();
+  if (S.gpu > 0.5) {
+    ctx.fillStyle = C.gpu;
+    rr(ix0 + 80 * s, y + 3 * s, (iw - 80 * s) * Math.min(1, S.gpu / 100), 9 * s, 4.5 * s); ctx.fill();
+  }
+  y += 18 * s;
+  panelH = y + pad - y0;   // 次のフレームで中身に合わせた高さにする
 }
 
 // ---------- ループ ----------
 let last = performance.now();
 function frame(t) {
+  requestAnimationFrame(frame);
+  if (t - last < 1000 / CFG.fps - 2) return;   // fps の上限で間引く
   const dt = Math.min(0.1, (t - last) / 1000); last = t;
   drawBackground(dt);
   drawPanel();
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 </script>
