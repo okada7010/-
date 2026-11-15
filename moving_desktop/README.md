@@ -9,6 +9,9 @@
 
 ![全画面型](screenshot.png)
 
+> **Lively Wallpaper を使う場合は [`lively/`](lively/README.md) を使ってください。**
+> 新しい Windows 11 でも、アイコンの裏で動く壁紙になります（推奨）。
+
 ## 表示する内容
 | 項目 | 内容 |
 |---|---|

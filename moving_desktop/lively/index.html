@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>動くデスクトップ</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #080c1c; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+/* =========================================================
+   動くデスクトップ（Lively Wallpaper 用）
+   ・背景：CPU負荷で速さと色が変わるパーティクル
+   ・右パネル：時計 / CPU・メモリ・ネットのゲージ / 60秒グラフ / GPU
+   データは Lively の System Data API（livelySystemInformation）から受け取る。
+   Lively 以外（ブラウザ）で開くと、デモ用の値で動く。
+   ========================================================= */
+
+// ---------- 設定 ----------
+const CFG = {
+  particles: 70,        // 背景の粒の数
+  linkDist: 150,        // 粒同士を線で結ぶ距離（1080p基準）
+  panelSide: "right",   // "right" / "left"
+  history: 60,          // グラフの点数（Livelyは約1秒ごとに送信 → 60秒）
+};
+
+const C = {
+  bgTop: [8, 12, 28], bgBottom: [18, 26, 54],
+  panel: "#0d1530", edge: "#24345f", text: "#e6ecff", sub: "#8a97c0", track: "#1c2748",
+  graphBg: "#0a1026", grid: "#16203f",
+  cpu: "#38d6ff", mem: "#c77dff", down: "#4ade80", up: "#fb923c", gpu: "#facc15",
+};
+const FONT = '"Yu Gothic UI","Meiryo UI","Meiryo","Noto Sans JP",sans-serif';
+const WEEK = "日月火水木金土";
+
+// ---------- 状態 ----------
+const S = {
+  cpu: 0, gpu: 0, memPct: 0, memUsed: 0, memTotal: 0, down: 0, up: 0,
+  nameCpu: "", nameGpu: "", nameNet: "",
+  hist: { cpu: [], mem: [], down: [], up: [] },
+  disp: { cpu: 0, mem: 0, net: 0 },
+  lastData: 0, demo: false,
+};
+for (const k in S.hist) S.hist[k] = new Array(CFG.history).fill(0);
+
+function push(k, v) { const a = S.hist[k]; a.push(v); if (a.length > CFG.history) a.shift(); }
+
+function ingest(o) {
+  S.cpu = num(o.CurrentCpu);
+  S.gpu = num(o.CurrentGpu3D);
+  S.memTotal = num(o.TotalRam);
+  S.memUsed = Math.max(0, S.memTotal - num(o.CurrentRamAvail));
+  S.memPct = S.memTotal ? S.memUsed / S.memTotal * 100 : 0;
+  S.down = num(o.CurrentNetDown);
+  S.up = num(o.CurrentNetUp);
+  S.nameCpu = o.NameCpu || ""; S.nameGpu = o.NameGpu || ""; S.nameNet = o.NameNetCard || "";
+  push("cpu", S.cpu); push("mem", S.memPct); push("down", S.down); push("up", S.up);
+}
+function num(v) { v = Number(v); return isFinite(v) ? v : 0; }
+
+// Lively から呼ばれる（LivelyInfo.json の Arguments に --system-information が必要）
+window.livelySystemInformation = function (data) {
+  try { ingest(JSON.parse(data)); S.lastData = performance.now(); S.demo = false; } catch (e) {}
+};
+
+// Lively 以外で開いた場合のデモ値
+let demoT = 0;
+setInterval(() => {
+  if (performance.now() - S.lastData < 3000) return;
+  S.demo = true; demoT += 1;
+  const wave = (p, a) => (Math.sin(demoT / p) + 1) / 2 * a;
+  ingest({
+    CurrentCpu: 8 + wave(9, 30) + (Math.random() < 0.08 ? 50 : 0) + Math.random() * 6,
+    CurrentGpu3D: 5 + wave(13, 25), TotalRam: 16384, CurrentRamAvail: 16384 - (6000 + wave(20, 3000)),
+    CurrentNetDown: Math.random() < 0.15 ? 2e6 + Math.random() * 6e6 : Math.random() * 2e5,
+    CurrentNetUp: Math.random() * 1.2e5, NameCpu: "デモ表示（Lively以外）", NameGpu: "", NameNetCard: "",
+  });
+}, 1000);
+
+// ---------- 書式 ----------
+function fmtSpeed(Bps) {
+  const b = Bps * 8;
+  if (b >= 1e9) return [(b / 1e9).toFixed(2), "Gbps"];
+  if (b >= 1e6) return [(b / 1e6).toFixed(1), "Mbps"];
+  if (b >= 1e3) return [(b / 1e3).toFixed(0), "kbps"];
+  return [b.toFixed(0), "bps"];
+}
+function fmtMB(mb) { return mb >= 1024 ? (mb / 1024).toFixed(1) + " GB" : mb.toFixed(0) + " MB"; }
+function netScale() {
+  const peak = Math.max(1, ...S.hist.down, ...S.hist.up) * 8;
+  const mag = Math.pow(10, Math.floor(Math.log10(peak)));
+  for (const m of [1, 2, 5, 10]) if (peak <= m * mag) return m * mag / 8;
+  return 10 * mag / 8;
+}
+const lerp = (a, b, t) => a + (b - a) * t;
+const mix = (c1, c2, t) => c1.map((v, i) => Math.round(lerp(v, c2[i], t)));
+const rgb = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+function loadColor(v) {
+  const c0 = [56, 214, 255], c1 = [250, 204, 21], c2 = [239, 68, 68], t = v / 100;
+  return t < 0.6 ? mix(c0, c1, t / 0.6) : mix(c1, c2, Math.min(1, (t - 0.6) / 0.4));
+}
+
+// ---------- 描画準備 ----------
+const cv = document.getElementById("c");
+const ctx = cv.getContext("2d");
+let W = 0, H = 0, s = 1, parts = [], bgGrad;
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  s = H / 1080;
+  bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0, rgb(C.bgTop)); bgGrad.addColorStop(1, rgb(C.bgBottom));
+  parts = Array.from({ length: CFG.particles }, () => ({
+    x: Math.random() * W, y: Math.random() * H,
+    vx: Math.random() * 2 - 1, vy: Math.random() * 2 - 1, r: (2 + Math.random() * 2.5) * s,
+  }));
+}
+window.addEventListener("resize", resize);
+resize();
+
+function rr(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function text(t, x, y, size, color, weight = "normal", align = "left", base = "top") {
+  ctx.font = `${weight} ${size * s}px ${FONT}`;
+  ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = base;
+  ctx.fillText(t, x, y);
+}
+
+// ---------- 背景 ----------
+function drawBackground(dt) {
+  ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
+  const speed = (0.4 + 2.6 * S.cpu / 100) * s * dt * 30;
+  const pc = rgb(loadColor(S.cpu));
+  const ld = CFG.linkDist * s;
+  for (const p of parts) {
+    p.x += p.vx * speed; p.y += p.vy * speed;
+    if (p.x < 0 || p.x > W) { p.vx *= -1; p.x = Math.min(Math.max(p.x, 0), W); }
+    if (p.y < 0 || p.y > H) { p.vy *= -1; p.y = Math.min(Math.max(p.y, 0), H); }
+  }
+  ctx.lineWidth = 1;
+  for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
+    const a = parts[i], b = parts[j], dx = a.x - b.x, dy = a.y - b.y, d = Math.hypot(dx, dy);
+    if (d < ld) {
+      ctx.strokeStyle = `rgba(90,150,230,${(1 - d / ld) * 0.6})`;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+  }
+  ctx.fillStyle = pc;
+  for (const p of parts) { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); }
+}
+
+// ---------- パネル ----------
+function gauge(cx, cy, r, v, col, val, unit, label) {
+  const lw = 11 * s, a0 = Math.PI * 0.75, span = Math.PI * 1.5;
+  ctx.lineCap = "round"; ctx.lineWidth = lw;
+  ctx.strokeStyle = C.track; ctx.beginPath(); ctx.arc(cx, cy, r, a0, a0 + span); ctx.stroke();
+  if (v > 0.3) {
+    ctx.strokeStyle = col; ctx.beginPath(); ctx.arc(cx, cy, r, a0, a0 + span * Math.min(1, v / 100)); ctx.stroke();
+  }
+  ctx.lineCap = "butt";
+  text(val, cx, cy - 4 * s, 22, C.text, "bold", "center", "middle");
+  text(unit, cx, cy + 20 * s, 10, C.sub, "normal", "center", "middle");
+  text(label, cx, cy + r + 8 * s, 13, col, "bold", "center", "middle");
+}
+
+function graph(x, y, w, h, series) {
+  ctx.fillStyle = C.graphBg; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = C.edge; ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + .5, w - 1, h - 1);
+  ctx.setLineDash([2 * s, 4 * s]); ctx.strokeStyle = C.grid;
+  for (let k = 1; k < 4; k++) { const yy = y + h * k / 4; ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + w, yy); ctx.stroke(); }
+  ctx.setLineDash([]);
+  for (const [data, max, col] of series) {
+    ctx.strokeStyle = col; ctx.lineWidth = 2 * s; ctx.lineJoin = "round";
+    ctx.beginPath();
+    data.forEach((v, i) => {
+      const px = x + w * i / (data.length - 1), py = y + h - 2 - (h - 4) * Math.min(1, v / max);
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    });
+    ctx.stroke();
+    // 塗り
+    ctx.lineTo(x + w, y + h); ctx.lineTo(x, y + h); ctx.closePath();
+    ctx.fillStyle = col + "22"; ctx.fill();
+  }
+}
+
+function sectionTitle(x0, x1, y, title, legends) {
+  text(title, x0, y, 13, C.text, "bold");
+  let x = x1;
+  for (let i = legends.length - 1; i >= 0; i--) {
+    const [lab, col] = legends[i];
+    text(lab, x, y + 2 * s, 11, col, "normal", "right");
+    ctx.font = `normal ${11 * s}px ${FONT}`;
+    x -= ctx.measureText(lab).width + 14 * s;
+  }
+  return y + 28 * s;
+}
+
+function drawPanel() {
+  const pw = 460 * s, m = 40 * s, pad = 26 * s;
+  const x0 = CFG.panelSide === "left" ? m : W - pw - m, y0 = 40 * s;
+  const ix0 = x0 + pad, ix1 = x0 + pw - pad, iw = ix1 - ix0;
+  const panelH = 840 * s;
+
+  ctx.fillStyle = "rgba(13,21,48,0.92)"; rr(x0, y0, pw, panelH, 22 * s); ctx.fill();
+  ctx.strokeStyle = C.edge; ctx.lineWidth = 2 * s; ctx.stroke();
+
+  let y = y0 + pad;
+  const now = new Date(), p2 = n => String(n).padStart(2, "0");
+  text(`${p2(now.getHours())}:${p2(now.getMinutes())}:${p2(now.getSeconds())}`, ix0, y, 54, C.text, "bold");
+  y += 70 * s;
+  text(`${now.getFullYear()}年${p2(now.getMonth() + 1)}月${p2(now.getDate())}日（${WEEK[now.getDay()]}）`, ix0, y, 16, C.sub);
+  if (S.demo) text("デモ表示", ix1, y + 2 * s, 12, C.gpu, "bold", "right");
+  y += 40 * s;
+
+  // ゲージ
+  const sc = netScale();
+  const tgt = { cpu: S.cpu, mem: S.memPct, net: Math.min(100, S.down / sc * 100) };
+  for (const k in tgt) S.disp[k] = lerp(S.disp[k], tgt[k], 0.12);
+  const gw = iw / 3, gr = Math.min(gw * 0.42, 62 * s), gy = y + gr + 6 * s;
+  const [nv, nu] = fmtSpeed(S.down);
+  gauge(ix0 + gw * 0.5, gy, gr, S.disp.cpu, C.cpu, S.disp.cpu.toFixed(0), "%", "CPU");
+  gauge(ix0 + gw * 1.5, gy, gr, S.disp.mem, C.mem, S.disp.mem.toFixed(0), "%", "メモリ");
+  gauge(ix0 + gw * 2.5, gy, gr, S.disp.net, C.down, nv, "↓ " + nu, "ネット");
+  y = gy + gr + 40 * s;
+
+  text(`メモリ ${fmtMB(S.memUsed)} / ${fmtMB(S.memTotal)}`, ix0, y, 12, C.sub);
+  text(`GPU ${S.gpu.toFixed(0)}%`, ix1, y, 12, C.gpu, "normal", "right");
+  y += 34 * s;
+
+  // CPU / メモリ
+  y = sectionTitle(ix0, ix1, y, "CPU / メモリ  (60秒)", [["CPU", C.cpu], ["MEM", C.mem]]);
+  const gh = 110 * s;
+  graph(ix0, y, iw, gh, [[S.hist.mem, 100, C.mem], [S.hist.cpu, 100, C.cpu]]);
+  y += gh + 24 * s;
+
+  // ネットワーク
+  y = sectionTitle(ix0, ix1, y, "ネットワーク  (60秒)", [["↓受信", C.down], ["↑送信", C.up]]);
+  graph(ix0, y, iw, gh, [[S.hist.up, sc, C.up], [S.hist.down, sc, C.down]]);
+  const [mv, mu] = fmtSpeed(sc);
+  text(`最大 ${mv} ${mu}`, ix1 - 6 * s, y + 4 * s, 10, C.sub, "normal", "right");
+  y += gh + 10 * s;
+  const [dv, du] = fmtSpeed(S.down), [uv, uu] = fmtSpeed(S.up);
+  text(`↓ ${dv} ${du}`, ix0, y, 17, C.down, "bold");
+  text(`↑ ${uv} ${uu}`, ix0 + iw / 2, y, 17, C.up, "bold");
+  y += 32 * s;
+  if (S.nameNet) text(S.nameNet.slice(0, 48), ix0, y, 11, C.sub);
+  y += 34 * s;
+
+  // CPU / GPU 名
+  text("ハードウェア", ix0, y, 13, C.text, "bold");
+  y += 26 * s;
+  text("CPU  " + (S.nameCpu || "-").slice(0, 44), ix0, y, 11, C.sub);
+  y += 20 * s;
+  text("GPU  " + (S.nameGpu || "-").slice(0, 44), ix0, y, 11, C.sub);
+  y += 26 * s;
+  // GPU バー
+  ctx.fillStyle = C.track; rr(ix0, y, iw, 10 * s, 5 * s); ctx.fill();
+  if (S.gpu > 0.5) { ctx.fillStyle = C.gpu; rr(ix0, y, iw * Math.min(1, S.gpu / 100), 10 * s, 5 * s); ctx.fill(); }
+}
+
+// ---------- ループ ----------
+let last = performance.now();
+function frame(t) {
+  const dt = Math.min(0.1, (t - last) / 1000); last = t;
+  drawBackground(dt);
+  drawPanel();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
