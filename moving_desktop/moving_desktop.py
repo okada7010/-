@@ -73,6 +73,9 @@ def _excepthook(etype, value, tb):
 
 sys.excepthook = _excepthook
 IS_WIN = platform.system() == "Windows"
+WIDGET_KEY = "#010203"   # ウィジェット型の角を透明にするための色
+WIDGET_POS = os.path.join(BASE_DIR, "widget_pos.txt")
+WIDGET_ALPHA = 0.95      # ウィジェットの不透明度（0.3～1.0）
 WEEK_JA = "月火水木金土日"
 
 
@@ -323,14 +326,17 @@ class WallpaperHost:
 # 本体
 # ============================================================
 class MovingDesktop:
-    def __init__(self, root, width, height):
+    def __init__(self, root, width, height, widget=False, scale=None):
         self.root = root
         self.W, self.H = width, height
-        self.s = height / 1080.0
+        self.widget = widget
+        self.s = scale if scale else height / 1080.0
+        self.parts = []
+        self.link_dist = 1
         self.font = pick_font(root)
 
         self.cv = tk.Canvas(root, width=width, height=height, highlightthickness=0, bd=0,
-                            bg=rgb_hex(BG_TOP))
+                            bg=WIDGET_KEY if widget else rgb_hex(BG_TOP))
         self.cv.pack(fill="both", expand=True)
 
         # 計測データ
@@ -347,8 +353,9 @@ class MovingDesktop:
         psutil.cpu_percent(None)
         self.boot = psutil.boot_time()
 
-        self._build_background()
-        self._build_particles()
+        if not widget:
+            self._build_background()
+            self._build_particles()
         self._layout_panel()
         self._build_panel()
 
@@ -382,6 +389,12 @@ class MovingDesktop:
         s = self.s
         pw = int(460 * s)
         margin = int(40 * s)
+        if self.widget:
+            # ウィジェット型：ウィンドウ全体がパネル
+            self.px0, self.py0 = 0, 0
+            self.px1, self.py1 = self.W - 1, self.H - 1
+            self.pad = int(26 * s)
+            return
         if PANEL_SIDE == "left":
             self.px0 = margin
         else:
@@ -486,6 +499,7 @@ class MovingDesktop:
             self.core_bars.append((bar, bx0, by0, bx0 + bw, by1))
         # パネルの高さを中身に合わせる
         bottom = y + rows * bh + (rows - 1) * gap + pad
+        self.panel_bottom = bottom
         if bottom < y1:
             self.cv.coords(self.panel_rect, *self._round_pts(x0, y0, x1, bottom, int(22 * s)))
 
@@ -638,7 +652,8 @@ class MovingDesktop:
             cv.itemconfigure(p["id"], fill=pcol)
 
         # 近いパーティクル同士を線で結ぶ
-        cv.delete("link")
+        if self.parts:
+            cv.delete("link")
         d2max = self.link_dist ** 2
         parts = self.parts
         for i in range(len(parts)):
@@ -687,10 +702,7 @@ class MovingDesktop:
     # ---------- 終了監視 ----------
     def check_stop(self):
         if os.path.exists(STOP_FLAG):
-            try:
-                os.remove(STOP_FLAG)
-            except OSError:
-                pass
+            # フラグは消さない（同時に動いている他の画面もすべて止めるため）
             self.root.quit()
             return
         self.root.after(1000, self.check_stop)
@@ -707,13 +719,23 @@ def main():
     ap.add_argument("--method", default="auto",
                     choices=["auto", "progman", "progman-nolayer", "workerw"],
                     help="埋め込み方式（見えない場合に切り替え）")
+    ap.add_argument("--widget", action="store_true",
+                    help="ウィジェット型（パネルだけを最背面に表示。アイコンも壁紙も見える）")
     ap.add_argument("--label", help="画面中央に大きく表示する文字（方式テスト用）")
     ap.add_argument("--duration", type=float, help="指定秒数で自動終了（方式テスト用）")
     args = ap.parse_args()
 
-    wallpaper = (args.wallpaper or (IS_WIN and not args.window)) and IS_WIN
-    if os.path.exists(STOP_FLAG):
+    if args.widget:
+        args.window = False
+    wallpaper = (args.wallpaper or (IS_WIN and not args.window and not args.widget)) \
+        and IS_WIN and not args.widget
+    # すでに動いている画面があれば止めてから起動（二重起動の防止）
+    try:
+        open(STOP_FLAG, "w").close()
+        time.sleep(1.3)
         os.remove(STOP_FLAG)
+    except OSError:
+        pass
 
     host = None
     if IS_WIN:
@@ -721,6 +743,9 @@ def main():
     root = tk.Tk()
     root.title("動くデスクトップ")
     root.configure(bg=rgb_hex(BG_TOP))
+
+    if args.widget:
+        return run_widget(root)
 
     if wallpaper:
         host = WallpaperHost(args.method)
@@ -776,6 +801,116 @@ def main():
             root.destroy()
         except Exception:
             pass
+
+
+def _work_area(root):
+    """タスクバーを除いた作業領域 (left, top, right, bottom)"""
+    if IS_WIN:
+        try:
+            import ctypes
+            from ctypes import wintypes
+            rc = wintypes.RECT()
+            if ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(rc), 0):
+                return rc.left, rc.top, rc.right, rc.bottom
+        except Exception:
+            pass
+    return 0, 0, root.winfo_screenwidth(), root.winfo_screenheight()
+
+
+def run_widget(root):
+    """ウィジェット型：パネルだけを最背面に表示する"""
+    left, top, right, bottom = _work_area(root)
+    scale = root.winfo_screenheight() / 1080.0
+    w = int(460 * scale)
+    root.overrideredirect(True)
+    root.configure(bg=WIDGET_KEY)
+    app = MovingDesktop(root, w, bottom - top, widget=True, scale=scale)
+    h = int(app.panel_bottom) + 2
+    app.cv.configure(height=h)
+    try:
+        root.attributes("-transparentcolor", WIDGET_KEY)
+    except tk.TclError:
+        pass
+    try:
+        root.attributes("-alpha", WIDGET_ALPHA)
+    except tk.TclError:
+        pass
+
+    # 位置：前回ドラッグした位置、なければ右上
+    margin = int(24 * scale)
+    x, y = right - w - margin, top + margin
+    try:
+        with open(WIDGET_POS, encoding="utf-8") as f:
+            px, py = (int(v) for v in f.read().split(","))
+        if left - w < px < right and top - h < py < bottom:
+            x, y = px, py
+    except Exception:
+        pass
+    root.geometry(f"{w}x{h}+{x}+{y}")
+
+    # ドラッグで移動（位置は保存）
+    drag = {}
+
+    def on_press(e):
+        drag["x"], drag["y"] = e.x_root - root.winfo_x(), e.y_root - root.winfo_y()
+
+    def on_move(e):
+        root.geometry(f"+{e.x_root - drag['x']}+{e.y_root - drag['y']}")
+
+    def on_release(e):
+        try:
+            with open(WIDGET_POS, "w", encoding="utf-8") as f:
+                f.write(f"{root.winfo_x()},{root.winfo_y()}")
+        except OSError:
+            pass
+        send_to_bottom()
+
+    app.cv.bind("<ButtonPress-1>", on_press)
+    app.cv.bind("<B1-Motion>", on_move)
+    app.cv.bind("<ButtonRelease-1>", on_release)
+
+    # 右クリックメニュー
+    menu = tk.Menu(root, tearoff=0)
+    menu.add_command(label="位置を右上に戻す", command=lambda: (
+        root.geometry(f"+{right - w - margin}+{top + margin}"),
+        os.path.exists(WIDGET_POS) and os.remove(WIDGET_POS)))
+    menu.add_separator()
+    menu.add_command(label="終了", command=root.quit)
+    app.cv.bind("<Button-3>", lambda e: menu.tk_popup(e.x_root, e.y_root))
+
+    # 常に最背面（他のウィンドウの後ろ）に置く
+    def send_to_bottom():
+        if not IS_WIN:
+            root.lower()
+            return
+        try:
+            import ctypes
+            u32 = ctypes.windll.user32
+            u32.GetParent.restype = ctypes.c_void_p
+            hwnd = u32.GetParent(root.winfo_id()) or root.winfo_id()
+            u32.SetWindowPos(ctypes.c_void_p(hwnd), ctypes.c_void_p(1), 0, 0, 0, 0,
+                             0x2 | 0x1 | 0x10)  # HWND_BOTTOM, NOMOVE|NOSIZE|NOACTIVATE
+        except Exception as e:
+            log(f"send_to_bottom failed: {e!r}")
+
+    def keep_bottom():
+        if not drag.get("moving"):
+            send_to_bottom()
+        root.after(1500, keep_bottom)
+
+    app.cv.bind("<ButtonPress-1>", lambda e: (drag.update(moving=True), on_press(e)), add=False)
+    app.cv.bind("<ButtonRelease-1>", lambda e: (drag.update(moving=False), on_release(e)),
+                add=False)
+    root.after(500, keep_bottom)
+
+    root.report_callback_exception = lambda *a: _excepthook(*a)
+    log(f"start: mode=widget size={w}x{h} pos=({x},{y}) python={sys.version.split()[0]} "
+        f"os={platform.platform()}")
+    root.mainloop()
+    try:
+        root.destroy()
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

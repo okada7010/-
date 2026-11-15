@@ -4,7 +4,7 @@ cd /d %~dp0
 call :findpy || goto :nopy
 %PY% -c "import psutil" 2>nul || %PY% -m pip install --user psutil
 if errorlevel 1 goto :fail
-rem コンソールを出さずに最背面の全画面ウィンドウで起動（埋め込みなし）
+rem コンソールを出さずに背景アニメ付きの全画面で起動（デスクトップのアイコンは隠れます）
 start "" %PYW% "%~dp0moving_desktop.py" --wallpaper --no-embed %*
 exit /b
 

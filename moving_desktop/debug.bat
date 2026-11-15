@@ -11,8 +11,8 @@ echo 使用するPython: %PY%
 %PY% -c "import psutil; print('psutil', psutil.__version__)"
 %PY% -c "import tkinter; print('tkinter OK')"
 echo.
-echo --- 壁紙モードで起動します（エラーがあればここに表示されます。終了は stop.bat） ---
-%PY% "%~dp0moving_desktop.py" --wallpaper
+echo --- ウィジェット型で起動します（エラーがあればここに表示されます。終了は stop.bat） ---
+%PY% "%~dp0moving_desktop.py" --widget
 echo.
 echo --- ログ（moving_desktop.log の最後の部分） ---
 powershell -NoProfile -Command "Get-Content -Tail 30 -Encoding UTF8 '%~dp0moving_desktop.log'"

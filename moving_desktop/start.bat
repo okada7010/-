@@ -4,8 +4,8 @@ cd /d %~dp0
 call :findpy || goto :nopy
 %PY% -c "import psutil" 2>nul || %PY% -m pip install --user psutil
 if errorlevel 1 goto :fail
-rem コンソールを出さずに壁紙モードで起動
-start "" %PYW% "%~dp0moving_desktop.py" --wallpaper %*
+rem コンソールを出さずにウィジェット型（パネルだけを最背面に表示）で起動
+start "" %PYW% "%~dp0moving_desktop.py" --widget %*
 exit /b
 
 :findpy
