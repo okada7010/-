@@ -54,6 +54,24 @@ C_UP = "#fb923c"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STOP_FLAG = os.path.join(BASE_DIR, "stop.flag")
+LOG_FILE = os.path.join(BASE_DIR, "moving_desktop.log")
+
+
+def log(msg):
+    """pythonw では画面にエラーが出ないため、ログファイルに記録する"""
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S} {msg}\n")
+    except Exception:
+        pass
+
+
+def _excepthook(etype, value, tb):
+    import traceback
+    log("ERROR\n" + "".join(traceback.format_exception(etype, value, tb)))
+
+
+sys.excepthook = _excepthook
 IS_WIN = platform.system() == "Windows"
 WEEK_JA = "月火水木金土日"
 
@@ -113,6 +131,7 @@ class WallpaperHost:
         self.wt = wintypes
         self.u32 = ctypes.windll.user32
         self.embedded = False
+        self.keep_bottom = False
         self.wallpaper_path = None
 
     @staticmethod
@@ -132,15 +151,51 @@ class WallpaperHost:
         # SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SM_CXSCREEN, SM_CYSCREEN
         return g(76), g(77), g(0), g(1)
 
-    def _find_workerw(self):
+    def _setup_api(self):
+        u32, wt = self.u32, self.wt
+        H = wt.HWND
+        u32.FindWindowW.restype = H
+        u32.FindWindowExW.restype = H
+        u32.FindWindowExW.argtypes = [H, H, wt.LPCWSTR, wt.LPCWSTR]
+        u32.GetParent.restype = H
+        u32.GetParent.argtypes = [H]
+        u32.SetParent.restype = H
+        u32.SetParent.argtypes = [H, H]
+        u32.SetWindowPos.argtypes = [H, H, self.ct.c_int, self.ct.c_int, self.ct.c_int,
+                                     self.ct.c_int, wt.UINT]
+        u32.MoveWindow.argtypes = [H, self.ct.c_int, self.ct.c_int, self.ct.c_int, self.ct.c_int,
+                                   wt.BOOL]
+        u32.SendMessageTimeoutW.argtypes = [H, wt.UINT, wt.WPARAM, wt.LPARAM, wt.UINT,
+                                            wt.UINT, self.ct.POINTER(self.ct.c_size_t)]
+        u32.SetLayeredWindowAttributes.argtypes = [H, wt.DWORD, wt.BYTE, wt.DWORD]
+        if self.ct.sizeof(self.ct.c_void_p) == 8:
+            u32.GetWindowLongPtrW.restype = self.ct.c_ssize_t
+            u32.GetWindowLongPtrW.argtypes = [H, self.ct.c_int]
+            u32.SetWindowLongPtrW.argtypes = [H, self.ct.c_int, self.ct.c_ssize_t]
+            self.get_style = u32.GetWindowLongPtrW
+            self.set_style = u32.SetWindowLongPtrW
+        else:
+            self.get_style = u32.GetWindowLongW
+            self.set_style = u32.SetWindowLongW
+
+    def _find_targets(self):
+        """(方式, progman, defview, workerw) を返す"""
         u32, ct, wt = self.u32, self.ct, self.wt
         progman = u32.FindWindowW("Progman", None)
         if not progman:
-            return None
+            return None, None, None, None
         # Progman に 0x052C を送ると、壁紙描画用の WorkerW が生成される
         res = ct.c_size_t()
+        u32.SendMessageTimeoutW(progman, 0x052C, 0xD, 0x1, 0, 1000, ct.byref(res))
         u32.SendMessageTimeoutW(progman, 0x052C, 0, 0, 0, 1000, ct.byref(res))
 
+        # Windows 11 24H2 以降：SHELLDLL_DefView と WorkerW が Progman の子
+        defview = u32.FindWindowExW(progman, None, "SHELLDLL_DefView", None)
+        workerw = u32.FindWindowExW(progman, None, "WorkerW", None)
+        if defview and workerw:
+            return "24H2", progman, defview, workerw
+
+        # 従来方式：SHELLDLL_DefView を持つトップレベル窓の次の WorkerW
         found = {"w": None}
         enum_proc = ct.WINFUNCTYPE(wt.BOOL, wt.HWND, wt.LPARAM)
 
@@ -153,13 +208,12 @@ class WallpaperHost:
 
         u32.EnumWindows(enum_proc(cb), 0)
         if found["w"]:
-            return found["w"]
-        # Windows 11 24H2 以降：WorkerW が Progman の子になっている
-        w = u32.FindWindowExW(progman, None, "WorkerW", None)
-        return w or None
+            return "classic", progman, None, found["w"]
+        return None, progman, None, None
 
     def embed(self, root):
         u32, ct = self.u32, self.ct
+        self._setup_api()
         # 現在の壁紙パス（終了時に再描画するため）
         buf = ct.create_unicode_buffer(520)
         if u32.SystemParametersInfoW(0x0073, 520, buf, 0):  # SPI_GETDESKWALLPAPER
@@ -168,17 +222,53 @@ class WallpaperHost:
         root.update_idletasks()
         hwnd = u32.GetParent(root.winfo_id()) or root.winfo_id()
         vx, vy, w, h = self.virtual_screen()
-        workerw = self._find_workerw()
-        if workerw:
-            u32.SetParent(hwnd, workerw)
-            # WorkerW のクライアント座標は仮想スクリーン左上が原点 → プライマリモニタへ配置
-            u32.MoveWindow(hwnd, -vx, -vy, w, h, True)
-            self.embedded = True
-        else:
-            # 埋め込みできない場合は最背面の全画面ウィンドウとして表示
-            HWND_BOTTOM = 1
-            u32.SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, w, h, 0x0010)  # SWP_NOACTIVATE
+        mode, progman, defview, workerw = self._find_targets()
+        log(f"embed: mode={mode} progman={progman} defview={defview} workerw={workerw} "
+            f"screen=({vx},{vy},{w},{h})")
+        GWL_STYLE, GWL_EXSTYLE = -16, -20
+        WS_CHILD, WS_POPUP = 0x40000000, 0x80000000
+        WS_EX_LAYERED = 0x00080000
+        SWP_NOMOVE, SWP_NOSIZE, SWP_NOACTIVATE = 0x2, 0x1, 0x10
+        try:
+            if mode == "24H2":
+                # 子ウィンドウ化＋レイヤードにして Progman の中で
+                # 「アイコン(DefView)の下・壁紙(WorkerW)の上」に置く
+                st = self.get_style(hwnd, GWL_STYLE)
+                self.set_style(hwnd, GWL_STYLE, (st & ~WS_POPUP) | WS_CHILD)
+                ex = self.get_style(hwnd, GWL_EXSTYLE)
+                self.set_style(hwnd, GWL_EXSTYLE, ex | WS_EX_LAYERED)
+                u32.SetLayeredWindowAttributes(hwnd, 0, 255, 0x2)  # LWA_ALPHA
+                u32.SetParent(hwnd, progman)
+                u32.MoveWindow(hwnd, -vx, -vy, w, h, True)
+                u32.SetWindowPos(hwnd, defview, 0, 0, 0, 0,
+                                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE)
+                u32.SetWindowPos(workerw, hwnd, 0, 0, 0, 0,
+                                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE)
+                self.embedded = True
+            elif mode == "classic":
+                u32.SetParent(hwnd, workerw)
+                # WorkerW のクライアント座標は仮想スクリーン左上が原点 → プライマリモニタへ配置
+                u32.MoveWindow(hwnd, -vx, -vy, w, h, True)
+                self.embedded = True
+        except Exception as e:
+            log(f"embed failed: {e!r}")
+            self.embedded = False
+        if not self.embedded:
+            self.fallback(root)
+        log(f"embedded={self.embedded}")
         return self.embedded
+
+    def fallback(self, root):
+        """埋め込みできない場合：最背面の全画面ウィンドウとして表示"""
+        try:
+            hwnd = self.u32.GetParent(root.winfo_id()) or root.winfo_id()
+            if self.u32.GetParent(hwnd):
+                self.u32.SetParent(hwnd, None)
+            _, _, w, h = self.virtual_screen()
+            self.u32.SetWindowPos(hwnd, 1, 0, 0, w, h, 0x0010)  # HWND_BOTTOM
+            self.keep_bottom = True
+        except Exception as e:
+            log(f"fallback failed: {e!r}")
 
     def restore_wallpaper(self):
         # 元の壁紙を再設定してデスクトップを再描画
@@ -572,6 +662,8 @@ def main():
     g.add_argument("--window", action="store_true", help="通常ウィンドウで表示")
     g.add_argument("--wallpaper", action="store_true", help="壁紙モード（Windowsのみ）")
     ap.add_argument("--size", help="ウィンドウサイズ 例: 1600x900（--window時）")
+    ap.add_argument("--no-embed", action="store_true",
+                    help="壁紙に埋め込まず、最背面の全画面ウィンドウとして表示")
     args = ap.parse_args()
 
     wallpaper = (args.wallpaper or (IS_WIN and not args.window)) and IS_WIN
@@ -603,7 +695,27 @@ def main():
     MovingDesktop(root, w, h)
 
     if host:
-        root.after(200, lambda: host.embed(root))
+        def do_embed():
+            if args.no_embed:
+                host.fallback(root)
+            else:
+                host.embed(root)
+        root.after(300, do_embed)
+
+        def keep_bottom():
+            # 埋め込みなしの場合、他のウィンドウより前に出ないよう最背面を維持
+            if host.keep_bottom:
+                try:
+                    hwnd = host.u32.GetParent(root.winfo_id()) or root.winfo_id()
+                    host.u32.SetWindowPos(hwnd, 1, 0, 0, 0, 0, 0x2 | 0x1 | 0x10)
+                except Exception:
+                    pass
+            root.after(2000, keep_bottom)
+        root.after(2500, keep_bottom)
+
+    root.report_callback_exception = lambda *a: _excepthook(*a)
+    log(f"start: mode={'wallpaper' if wallpaper else 'window'} python={sys.version.split()[0]} "
+        f"os={platform.platform()}")
 
     try:
         root.mainloop()
