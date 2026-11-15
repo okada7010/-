@@ -1,3 +1,2 @@
 libreoffice-calc-nogui
 fonts-ipafont-gothic
-fonts-noto-cjk

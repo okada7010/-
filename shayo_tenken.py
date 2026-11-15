@@ -304,6 +304,11 @@ def build_excel():
     wb = openpyxl.load_workbook(TEMPLATE)
     ws = wb.active
 
+    # 印刷設定：A4縦、左（点検項目）・右（ボディ・写真）の2ページに収める
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_setup.fitToWidth = 2
+    ws.page_setup.fitToHeight = 1
+
     # 基本情報
     write_cell(ws, "M3", f"点検日：{date_val.strftime('%Y年%m月%d日')}")
     write_cell(ws, "F4", vehicle)
