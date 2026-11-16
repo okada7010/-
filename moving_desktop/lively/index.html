@@ -28,7 +28,8 @@ const CFG = {
   linkDist: 150,        // 粒同士を線で結ぶ距離（1080p基準）
   layout: "wide",       // "wide"（横長2列：左＝PC、右＝AI）/ "tall"（縦長1列）
   panelSide: "right",   // "right" / "left"
-  panelScale: 0.85,     // パネルの大きさ（1.0 = 標準）
+  panelScale: 0.9,      // パネルの大きさ（1.0 = 標準）
+  fontScale: 1.2,       // 小さい文字の拡大率（1.0 = 元の大きさ）
   panelMarginX: 130,    // 画面の端からの距離（px）※右端のアイコン列を避ける
   panelMarginY: 80,     // 画面の上からの距離（px）※上段のアイコンを避ける
   panelAlpha: 0.88,     // パネルの不透明度
@@ -200,8 +201,10 @@ function rr(x, y, w, h, r) {
   ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
+// 小さい文字ほどしっかり拡大（大きい時計などは控えめ）
+const fsz = size => size * s * (size <= 14 ? CFG.fontScale : 1 + (CFG.fontScale - 1) * 0.4);
 function text(t, x, y, size, color, weight = "normal", align = "left", base = "top") {
-  ctx.font = `${weight} ${size * s}px ${FONT}`;
+  ctx.font = `${weight} ${fsz(size)}px ${FONT}`;
   ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = base;
   ctx.fillText(t, x, y);
 }
@@ -389,10 +392,10 @@ function sectionTitle(x0, x1, y, title, legends) {
   for (let i = legends.length - 1; i >= 0; i--) {
     const [lab, col] = legends[i];
     text(lab, x, y + 2 * s, 11, col, "normal", "right");
-    ctx.font = `normal ${11 * s}px ${FONT}`;
+    ctx.font = `normal ${fsz(11)}px ${FONT}`;
     x -= ctx.measureText(lab).width + 14 * s;
   }
-  return y + 28 * s;
+  return y + 30 * s;
 }
 
 function panelWidth() { return (CFG.layout === "wide" ? 900 : 460) * s; }
@@ -453,10 +456,10 @@ function drawPanel() {
   text("CPU  " + (S.nameCpu || "-").slice(0, 44), ix0, y, 11, C.sub);
   y += 24 * s;
   text("GPU 使用率", ix0, y, 11, C.gpu);
-  ctx.fillStyle = C.track; rr(ix0 + 80 * s, y + 3 * s, iw - 80 * s, 9 * s, 4.5 * s); ctx.fill();
+  ctx.fillStyle = C.track; rr(ix0 + 95 * s, y + 3 * s, iw - 95 * s, 9 * s, 4.5 * s); ctx.fill();
   if (S.gpu > 0.5) {
     ctx.fillStyle = C.gpu;
-    rr(ix0 + 80 * s, y + 3 * s, (iw - 80 * s) * Math.min(1, S.gpu / 100), 9 * s, 4.5 * s); ctx.fill();
+    rr(ix0 + 95 * s, y + 3 * s, (iw - 95 * s) * Math.min(1, S.gpu / 100), 9 * s, 4.5 * s); ctx.fill();
   }
   y += 34 * s;
 
@@ -484,7 +487,7 @@ function dailyChart(ix0, ix1, iw, y, daily, col, name) {
   const max = Math.max(1, ...daily.map(tokTotal));
   text("日別トークン（入力＋出力・7日）", ix0, y, 10, C.sub);
   text("最大 " + fmtTok(max), ix1, y, 9, C.sub, "normal", "right");
-  y += 17 * s;
+  y += 19 * s;
   const gh = (CFG.layout === "wide" ? 80 : 52) * s, n = daily.length, gw = iw / n, bw = Math.max(3, gw * 0.55);
   ctx.fillStyle = C.graphBg; ctx.fillRect(ix0, y, iw, gh);
   for (let i = 0; i < n; i++) {
@@ -495,7 +498,7 @@ function dailyChart(ix0, ix1, iw, y, daily, col, name) {
     text(daily[i].date.slice(5).replace("-", "/"), bx, y + gh + 3 * s, 9,
          i === n - 1 ? C.text : C.sub, "normal", "center");
   }
-  y += gh + 18 * s;
+  y += gh + 20 * s;
   const today = tokTotal(daily[n - 1]);
   const week = daily.reduce((a, r) => a + tokTotal(r), 0);
   text(`今日 ${fmtTok(today)}`, ix0, y, 11, col, "bold");
@@ -523,12 +526,12 @@ function drawAI(ix0, ix1, iw, y) {
     const LBL = { extra_usage: "追加利用", seven_day_oauth_apps: "週間（連携アプリ）" };
     text(LBL[L.label] || LBL[L.key] || L.label, ix0, y, 11, C.text);
     text(`${pct.toFixed(0)}%`, ix1, y, 11, col, "bold", "right");
-    y += 17 * s;
+    y += 19 * s;
     ctx.fillStyle = C.track; rr(ix0, y, iw, 8 * s, 4 * s); ctx.fill();
     if (pct > 0.5) { ctx.fillStyle = col; rr(ix0, y, iw * pct / 100, 8 * s, 4 * s); ctx.fill(); }
     y += 11 * s;
     text(fmtReset(L.resets_at), ix1, y, 9, C.sub, "normal", "right");
-    y += 16 * s;
+    y += 18 * s;
   }
   y += 4 * s;
   y = dailyChart(ix0, ix1, iw, y, cl.daily || [], C.claude, "Claude Code");
