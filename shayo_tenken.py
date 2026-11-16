@@ -313,6 +313,11 @@ def build_excel():
     wb = openpyxl.load_workbook(os.path.join(TEMPLATE_DIR, vinfo["テンプレート"]))
     ws = wb.worksheets[0]
 
+    # 印刷設定：A4縦、1ページ目＝点検項目、2ページ目＝車両展開図・備考 に収める
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 2
+
     # 基本情報
     write_cell(ws, "D3", vehicle.replace("（フィット）", ""))
     write_cell(ws, "M3", vinfo["ナンバー"])
