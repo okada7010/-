@@ -1,4 +1,6 @@
 import streamlit as st
+from copy import copy
+
 import openpyxl
 from openpyxl.styles import Alignment, Font
 from openpyxl.drawing.image import Image as XLImage
@@ -325,6 +327,14 @@ def build_excel():
     write_cell(ws, "M3", vinfo["ナンバー"])
     write_cell(ws, "D4", nonyu_text)
     write_cell(ws, "M4", keika_text)
+    # 一部の旧シート（プロボックス・バネット）は納入年・経過年数欄に斜線が引かれているので消す
+    for row in ws.iter_rows(min_row=4, max_row=4):
+        for c in row:
+            if c.border.diagonalDown or c.border.diagonalUp:
+                b = copy(c.border)
+                b.diagonalDown = False
+                b.diagonalUp = False
+                c.border = b
     write_cell(ws, "D5", vinfo["発煙筒"] or "年　　月")
     write_cell(ws, "M5", alcohol or "年　　月")
     write_cell(ws, "D7", inspector or "")
