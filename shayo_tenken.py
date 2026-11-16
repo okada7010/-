@@ -332,6 +332,8 @@ def build_excel():
     for i, (cat, item, sub, row, kind, good, tip) in enumerate(CHECK_ITEMS):
         write_cell(ws, f"{RESULT_COL}{row}", results[i] or "", horizontal="center")
     write_cell(ws, "I33", "発煙筒（有効期限の確認）")
+    write_cell(ws, "C29", "エンジンの状態確認", horizontal="left")
+    write_cell(ws, "L16", "")  # 旧様式の記入欄「基準：」は使わない
 
     # 備考欄（A68:Q73）：良好でない項目＋写真コメント＋備考
     lines = []
