@@ -17,6 +17,7 @@ PC上で動かし、次の値を集計して壁紙フォルダに usage.js を�
   pythonw ai_usage_collector.py            … 常駐（1分ごとに更新）
   python  ai_usage_collector.py --once     … 1回だけ集計して内容を表示（動作確認用）
   python  ai_usage_collector.py --out "C:\\path\\to\\wallpaper"   … 書き出し先を指定
+  python  ai_usage_collector.py --setup-gemini … Gemini CLI の記録（テレメトリのファイル出力）をオンにする
 終了:
   同じフォルダに stop_collector.flag を作る（ai_usage_stop.bat）
 """
@@ -317,11 +318,50 @@ def collect(state):
     }
 
 
+def setup_gemini():
+    """Gemini CLI の settings.json に、トークン量を記録する設定を追加する（元のファイルはバックアップ）"""
+    path = os.path.join(GEMINI_DIR, "settings.json")
+    outfile = os.path.join(GEMINI_DIR, "telemetry.log").replace("\\", "/")
+    data = {}
+    if os.path.exists(path):
+        try:
+            with open(path, encoding="utf-8-sig") as f:
+                text = f.read()
+            data = json.loads(text) if text.strip() else {}
+        except ValueError:
+            print("settings.json の形式を読み取れませんでした（コメント入りなど）。")
+            print("手動で次の内容を追加してください：")
+            print(json.dumps({"telemetry": {"enabled": True, "target": "local",
+                                            "outfile": outfile, "logPrompts": False}},
+                             ensure_ascii=False, indent=2))
+            return 1
+        backup = path + "." + dt.datetime.now().strftime("%Y%m%d%H%M%S") + ".bak"
+        with open(backup, "w", encoding="utf-8") as f:
+            f.write(text)
+        print("バックアップ:", backup)
+    else:
+        os.makedirs(GEMINI_DIR, exist_ok=True)
+    tel = data.get("telemetry") if isinstance(data.get("telemetry"), dict) else {}
+    tel.update({"enabled": True, "target": "local", "outfile": outfile, "logPrompts": False})
+    data["telemetry"] = tel
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    print("設定しました:", path)
+    print(json.dumps({"telemetry": tel}, ensure_ascii=False, indent=2))
+    print("\nこのあと Gemini CLI を使うと、トークン量が", outfile, "に記録されます。")
+    print("（プロンプトの本文は記録しない設定です）")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description="AI使用量コレクター")
     ap.add_argument("--once", action="store_true", help="1回だけ集計して表示")
     ap.add_argument("--out", action="append", help="usage.js の書き出し先フォルダ（複数可）")
+    ap.add_argument("--setup-gemini", action="store_true", help="Gemini CLI の記録をオンにする")
     args = ap.parse_args()
+
+    if args.setup_gemini:
+        sys.exit(setup_gemini())
 
     if os.path.exists(STOP_FLAG):
         os.remove(STOP_FLAG)

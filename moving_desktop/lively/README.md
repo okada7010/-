@@ -1,4 +1,4 @@
-# 動くデスクトップ（Lively Wallpaper 版） v6
+# 動くデスクトップ（Lively Wallpaper 版） v7
 
 [Lively Wallpaper](https://www.rocksdanister.com/lively/)（無料・Microsoft Store から入手可）で動かす版です。
 Lively が壁紙の埋め込みを担当するので、Windows 11 の新しいバージョンでもデスクトップのアイコンの裏で正しく動きます。
@@ -38,10 +38,7 @@ Lively 以外（ブラウザ）で `index.html` を開いた場合は「デモ�
 
 - Claude 利用枠の取得方法は公開仕様ではないため、将来の更新で取れなくなる可能性があります。その場合も他の表示は動きます。
 - ログイン情報は Anthropic への問い合わせにだけ使い、`usage.js` やログには書き出しません。
-- Gemini CLI で値が出ない場合は、`%USERPROFILE%\.gemini\settings.json` に次を追加してください（プロンプト本文は記録しない設定です）。
-  ```json
-  "telemetry": { "enabled": true, "target": "local", "outfile": "C:\\Users\\<ユーザー名>\\.gemini\\telemetry.log", "logPrompts": false }
-  ```
+- Gemini CLI で値が出ない場合は、`gemini_record_on.bat` をダブルクリックしてください。Gemini CLI の設定（`%USERPROFILE%\.gemini\settings.json`）に、トークン量をファイルに記録する設定を追加します（元のファイルはバックアップ、プロンプト本文は記録しない設定）。そのあと Gemini CLI を使った分から表示されます。
 - 金額ではなく**トークン量**を表示します（定額プランでは利用量に応じた請求がないため）。
 
 ## AI 使用量のファイル
@@ -50,6 +47,7 @@ Lively 以外（ブラウザ）で `index.html` を開いた場合は「デモ�
 | `ai_usage_collector.py` | 集計プログラム（Python標準ライブラリのみ。追加インストール不要） |
 | `ai_usage_start.bat` / `ai_usage_stop.bat` | 常駐起動／終了 |
 | `ai_usage_check.bat` | 1回だけ集計して内容を表示（動作確認用） |
+| `gemini_record_on.bat` | Gemini CLI の使用量を記録する設定をオンにする |
 | `ai_usage_autostart_on.bat` / `_off.bat` | Windows起動時の自動起動を登録／解除 |
 
 ## カスタマイズ
