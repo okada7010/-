@@ -314,6 +314,8 @@ def build_excel():
     ws = wb.worksheets[0]
 
     # 印刷設定：A4縦、1ページ目＝点検項目、2ページ目＝車両展開図・備考 に収める
+    # 印刷範囲を2つに分けて、2ページ目の見出し（38行目）から必ず改ページさせる
+    ws.print_area = "A1:Q37,A38:Q73"
     ws.sheet_properties.pageSetUpPr.fitToPage = True
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 2
