@@ -1,4 +1,4 @@
-# 動くデスクトップ（Lively Wallpaper 版） v3
+# 動くデスクトップ（Lively Wallpaper 版） v4
 
 [Lively Wallpaper](https://www.rocksdanister.com/lively/)（無料・Microsoft Store から入手可）で動かす版です。
 Lively が壁紙の埋め込みを担当するので、Windows 11 の新しいバージョンでもデスクトップのアイコンの裏で正しく動きます。
@@ -13,7 +13,7 @@ Lively が壁紙の埋め込みを担当するので、Windows 11 の新しい�
 - メモリ使用量、GPU使用率、CPU名・ネットワークアダプター名
 - **AI 使用量**（v3で追加。付属の `ai_usage_collector.py` を動かしたとき）
   - Claude の利用枠：5時間枠・週間枠の使用率％と、リセットまでの時間（claude.ai と Claude Code 共通の枠）
-  - 日別トークン（直近7日）：Claude Code と Gemini CLI の入力＋出力トークン
+  - Claude Code・Gemini CLI それぞれの日別トークン（直近7日、目盛りは別々）と今日・7日合計
 
 CPU などの値は Lively の System Data API（`livelySystemInformation`）から約1秒ごとに受け取ります。
 Lively 以外（ブラウザ）で `index.html` を開いた場合は「デモ表示」と出て、仮の値で動きます。
