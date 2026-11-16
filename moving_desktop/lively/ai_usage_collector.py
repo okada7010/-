@@ -123,6 +123,8 @@ def fetch_claude_limits():
         "seven_day": "週間（全モデル）",
         "seven_day_opus": "週間（Opus）",
         "seven_day_sonnet": "週間（Sonnet）",
+        "seven_day_oauth_apps": "週間（連携アプリ）",
+        "extra_usage": "追加利用",
     }
     limits = []
     for key, val in raw.items():

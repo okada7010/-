@@ -1,4 +1,4 @@
-# 動くデスクトップ（Lively Wallpaper 版） v4
+# 動くデスクトップ（Lively Wallpaper 版） v5
 
 [Lively Wallpaper](https://www.rocksdanister.com/lively/)（無料・Microsoft Store から入手可）で動かす版です。
 Lively が壁紙の埋め込みを担当するので、Windows 11 の新しいバージョンでもデスクトップのアイコンの裏で正しく動きます。
@@ -56,6 +56,7 @@ Lively 以外（ブラウザ）で `index.html` を開いた場合は「デモ�
 `index.html` 冒頭の `CFG` と `C`（色）を書き換えます。
 | 項目 | 内容 |
 |---|---|
+| `layout` | パネルの形（`"wide"`＝横長2列：左にPC・右にAI / `"tall"`＝縦長1列） |
 | `theme` | 背景の種類（`"pixel"`＝ドット絵の女の子 / `"network"`＝粒と線） |
 | `fps` | 描画の上限（標準30。下げるほど軽い） |
 | `particles` | 背景の粒の数（減らすほど軽い） |

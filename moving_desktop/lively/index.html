@@ -26,6 +26,7 @@ const CFG = {
   fps: 30,              // 描画の上限（下げるほど軽い。15～60）
   particles: 60,        // 背景の粒の数（減らすほど軽い）
   linkDist: 150,        // 粒同士を線で結ぶ距離（1080p基準）
+  layout: "wide",       // "wide"（横長2列：左＝PC、右＝AI）/ "tall"（縦長1列）
   panelSide: "right",   // "right" / "left"
   panelScale: 0.85,     // パネルの大きさ（1.0 = 標準）
   panelMarginX: 130,    // 画面の端からの距離（px）※右端のアイコン列を避ける
@@ -275,7 +276,7 @@ function drawPixelBackground(dt) {
   const G = px.girl, rows = GIRL_BODY.length + 3;
   const gu = Math.max(3, Math.round(5.5 * bs));         // 女の子の1ドットの大きさ
   const sw = GIRL_BODY[0].length * gu, sh = rows * gu;
-  const panelW = 460 * s + CFG.panelMarginX * 2;
+  const panelW = panelWidth() + CFG.panelMarginX * 2;
   const xMin = CFG.panelSide === "left" ? panelW : W * 0.05;
   const xMax = CFG.panelSide === "left" ? W * 0.95 - sw : W - panelW - sw;
   const dx = G.tx - G.x, dy = G.ty - G.y, d = Math.hypot(dx, dy);
@@ -394,11 +395,14 @@ function sectionTitle(x0, x1, y, title, legends) {
   return y + 28 * s;
 }
 
+function panelWidth() { return (CFG.layout === "wide" ? 900 : 460) * s; }
+
 function drawPanel() {
-  const pw = 460 * s, pad = 26 * s;
+  const pw = panelWidth(), pad = 26 * s, wide = CFG.layout === "wide";
   const x0 = CFG.panelSide === "left" ? CFG.panelMarginX : W - pw - CFG.panelMarginX;
   const y0 = CFG.panelMarginY;
-  const ix0 = x0 + pad, ix1 = x0 + pw - pad, iw = ix1 - ix0;
+  const cw = wide ? (pw - pad * 3) / 2 : pw - pad * 2;      // 1列の幅
+  const ix0 = x0 + pad, ix1 = ix0 + cw, iw = cw;
 
   ctx.fillStyle = `rgba(${PANEL_RGB},${CFG.panelAlpha})`; rr(x0, y0, pw, panelH, 22 * s); ctx.fill();
   ctx.strokeStyle = C.edge; ctx.lineWidth = 2 * s; ctx.stroke();
@@ -456,8 +460,19 @@ function drawPanel() {
   }
   y += 34 * s;
 
-  if (CFG.showAI) y = drawAI(ix0, ix1, iw, y);
-  panelH = y + pad - y0;   // 次のフレームで中身に合わせた高さにする
+  let yEnd = y;
+  if (CFG.showAI) {
+    if (wide) {
+      // 右の列に AI 使用量（間に区切り線）
+      const rx0 = ix1 + pad, rx1 = rx0 + cw;
+      ctx.strokeStyle = C.edge; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(ix1 + pad / 2, y0 + pad); ctx.lineTo(ix1 + pad / 2, y0 + panelH - pad); ctx.stroke();
+      yEnd = Math.max(y, drawAI(rx0, rx1, cw, y0 + pad));
+    } else {
+      yEnd = drawAI(ix0, ix1, iw, y);
+    }
+  }
+  panelH = yEnd + pad - y0;   // 次のフレームで中身に合わせた高さにする
 }
 
 // ---------- AI 使用量 ----------
@@ -470,7 +485,7 @@ function dailyChart(ix0, ix1, iw, y, daily, col, name) {
   text("日別トークン（入力＋出力・7日）", ix0, y, 10, C.sub);
   text("最大 " + fmtTok(max), ix1, y, 9, C.sub, "normal", "right");
   y += 17 * s;
-  const gh = 52 * s, n = daily.length, gw = iw / n, bw = Math.max(3, gw * 0.55);
+  const gh = (CFG.layout === "wide" ? 80 : 52) * s, n = daily.length, gw = iw / n, bw = Math.max(3, gw * 0.55);
   ctx.fillStyle = C.graphBg; ctx.fillRect(ix0, y, iw, gh);
   for (let i = 0; i < n; i++) {
     const bx = ix0 + gw * i + gw / 2, v = tokTotal(daily[i]);
@@ -505,7 +520,8 @@ function drawAI(ix0, ix1, iw, y) {
   for (const L of (cl.limits || []).slice(0, 3)) {
     const pct = Math.max(0, Math.min(100, L.pct));
     const col = pct >= 90 ? C.warn : pct >= 70 ? C.gpu : C.claude;
-    text(L.label, ix0, y, 11, C.text);
+    const LBL = { extra_usage: "追加利用", seven_day_oauth_apps: "週間（連携アプリ）" };
+    text(LBL[L.label] || LBL[L.key] || L.label, ix0, y, 11, C.text);
     text(`${pct.toFixed(0)}%`, ix1, y, 11, col, "bold", "right");
     y += 17 * s;
     ctx.fillStyle = C.track; rr(ix0, y, iw, 8 * s, 4 * s); ctx.fill();
