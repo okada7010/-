@@ -22,6 +22,7 @@
 
 // ---------- 設定 ----------
 const CFG = {
+  theme: "pixel",       // "pixel"（黒背景＋ドット絵の女の子）/ "network"（粒と線）
   fps: 30,              // 描画の上限（下げるほど軽い。15～60）
   particles: 60,        // 背景の粒の数（減らすほど軽い）
   linkDist: 150,        // 粒同士を線で結ぶ距離（1080p基準）
@@ -41,6 +42,14 @@ const C = {
   cpu: "#38d6ff", mem: "#c77dff", down: "#4ade80", up: "#fb923c", gpu: "#facc15",
   claude: "#e08a5f", gemini: "#6aa1ff", warn: "#ef4444",
 };
+// ドット絵テーマの配色（黒背景に合わせたパステル）
+if (CFG.theme === "pixel") Object.assign(C, {
+  bgTop: [0, 0, 0], bgBottom: [0, 0, 0],
+  edge: "#34344c", text: "#f2f2ff", sub: "#8b8ba8", track: "#1b1b2a",
+  graphBg: "#05050a", grid: "#15152a",
+  cpu: "#7ee8ff", mem: "#ff7eb6", down: "#9dff7e", up: "#ffd84d", gpu: "#ffd84d",
+});
+const PANEL_RGB = CFG.theme === "pixel" ? "6,6,14" : "13,21,48";
 const FONT = '"Yu Gothic UI","Meiryo UI","Meiryo","Noto Sans JP",sans-serif';
 const WEEK = "日月火水木金土";
 
@@ -165,6 +174,7 @@ function loadColor(v) {
 const cv = document.getElementById("c");
 const ctx = cv.getContext("2d");
 let W = 0, H = 0, s = 1, bs = 1, parts = [], bgGrad, panelH = 800;
+const px = { stars: [], trail: [], girl: null, t: 0 };   // ドット絵テーマの状態
 
 function resize() {
   const dpr = window.devicePixelRatio || 1;
@@ -179,6 +189,7 @@ function resize() {
     x: Math.random() * W, y: Math.random() * H,
     vx: Math.random() * 2 - 1, vy: Math.random() * 2 - 1, r: (2 + Math.random() * 2.5) * bs,
   }));
+  px.girl = null;   // ドット絵テーマは次の描画で作り直す
 }
 window.addEventListener("resize", resize);
 resize();
@@ -194,8 +205,128 @@ function text(t, x, y, size, color, weight = "normal", align = "left", base = "t
   ctx.fillText(t, x, y);
 }
 
-// ---------- 背景 ----------
+// ---------- 背景（ドット絵テーマ） ----------
+const SPARK_COLORS = ["#ff7eb6", "#ffd84d", "#7ee8ff", "#9dff7e", "#ffffff", "#c9a7ff"];
+// アリス風の女の子（オリジナルのドット絵。. = 透明、右向き）
+const GIRL_BODY = [
+  "....hhhhhh....",
+  "...bbbbbbbb...",
+  "..hhhhhhhhhh..",
+  "..hhsssssshh..",
+  "..hhsesssesh..",
+  "..hhsssmsssh..",
+  "..hhhssssshh..",
+  "..hHhdaaadhHh.",
+  "...hdaaaaadh..",
+  "...ddaaaaadd..",
+  "..sddaaaaadds.",
+  "...ddaaaaadd..",
+  "..dddaaaaaddd.",
+  ".ddddaaaaadddd",
+  ".DdddAaaaAdddD",
+  ".DDDDDDDDDDDD.",
+];
+const GIRL_LEGS = [
+  ["....ww..ww....", "....ww..ww....", "....kk..kk...."],   // 立ち
+  ["...ww....ww...", "..ww......ww..", "..kk......kk.."],   // 歩き1
+  [".....wwww.....", ".....ww.ww....", ".....kk.kk...."],   // 歩き2
+];
+const GIRL_COL = { h: "#ffd84d", H: "#e0a82e", b: "#4b4b66", s: "#ffd9b8", e: "#3b5bff",
+                   m: "#ff7eb6", d: "#4f8cff", D: "#2f5fd0", a: "#ffffff", A: "#d8d8ee",
+                   w: "#f2f2ff", k: "#5b4b70" };
+function initPixel() {
+  const u = Math.max(2, Math.round(3 * bs));          // 1ドットの大きさ（星）
+  px.u = u;
+  px.stars = Array.from({ length: Math.round(W * H / 26000) }, () => ({
+    x: Math.random() * W, y: Math.random() * H,
+    c: SPARK_COLORS[(Math.random() * SPARK_COLORS.length) | 0],
+    ph: Math.random() * 6.28, sp: 0.6 + Math.random() * 1.8, big: Math.random() < 0.35,
+  }));
+  px.trail = [];
+  px.girl = { x: W * 0.4, y: H * 0.45, tx: W * 0.3, ty: H * 0.4, dir: 1, wait: 0 };
+}
+
+function pixelPlus(x, y, u, col, big) {
+  x = Math.round(x / u) * u; y = Math.round(y / u) * u;
+  ctx.fillStyle = col;
+  ctx.fillRect(x, y, u, u);
+  if (big) {
+    ctx.fillRect(x - u, y, u, u); ctx.fillRect(x + u, y, u, u);
+    ctx.fillRect(x, y - u, u, u); ctx.fillRect(x, y + u, u, u);
+  }
+}
+
+function drawPixelBackground(dt) {
+  if (!px.girl) initPixel();
+  const u = px.u, load = S.cpu / 100;
+  px.t += dt;
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+
+  // またたく星
+  for (const st of px.stars) {
+    const v = Math.sin(px.t * st.sp + st.ph);
+    if (v < -0.2) continue;
+    ctx.globalAlpha = 0.35 + 0.65 * Math.max(0, v);
+    pixelPlus(st.x, st.y, u, st.c, st.big && v > 0.55);
+  }
+  ctx.globalAlpha = 1;
+
+  // 女の子の移動（パネルの外側を歩く。CPU負荷で速くなる）
+  const G = px.girl, rows = GIRL_BODY.length + 3;
+  const gu = Math.max(3, Math.round(5.5 * bs));         // 女の子の1ドットの大きさ
+  const sw = GIRL_BODY[0].length * gu, sh = rows * gu;
+  const panelW = 460 * s + CFG.panelMarginX * 2;
+  const xMin = CFG.panelSide === "left" ? panelW : W * 0.05;
+  const xMax = CFG.panelSide === "left" ? W * 0.95 - sw : W - panelW - sw;
+  const dx = G.tx - G.x, dy = G.ty - G.y, d = Math.hypot(dx, dy);
+  const speed = (30 + 200 * load) * bs;
+  let moving = false;
+  if (G.wait > 0) {
+    G.wait -= dt;
+  } else if (d < 6) {
+    G.tx = xMin + Math.random() * Math.max(10, xMax - xMin);
+    G.ty = H * 0.12 + Math.random() * H * 0.62;
+    G.wait = 0.8 + Math.random() * 2.5 * (1 - load);   // 負荷が低いとのんびり休む
+  } else {
+    G.x += dx / d * speed * dt; G.y += dy / d * speed * dt;
+    if (Math.abs(dx) > 2) G.dir = dx > 0 ? 1 : -1;
+    moving = true;
+  }
+  const bob = Math.sin(px.t * 2.0) * 1.5 * gu;
+  const gx = Math.round(G.x / gu) * gu, gy = Math.round((G.y + bob) / gu) * gu;
+
+  // 通ったあとにキラキラを残す（CPU負荷で増える）
+  if (Math.random() < ((moving ? 0.25 : 0.06) + 0.8 * load) * dt * 30) {
+    px.trail.push({ x: gx + sw / 2 - G.dir * sw * 0.7 + (Math.random() - .5) * sw,
+                    y: gy + sh * 0.55 + (Math.random() - .5) * sh,
+                    c: SPARK_COLORS[(Math.random() * SPARK_COLORS.length) | 0], life: 1,
+                    big: Math.random() < 0.6 });
+  }
+  for (const p of px.trail) p.life -= dt / 2.5;
+  px.trail = px.trail.filter(p => p.life > 0);
+  for (const p of px.trail) {
+    ctx.globalAlpha = Math.min(1, p.life * 1.5);
+    pixelPlus(p.x, p.y, u, p.c, p.big && p.life > 0.4);
+  }
+  ctx.globalAlpha = 1;
+
+  // 本体（歩いているときは足を交互に、向きで左右反転）
+  const legs = moving ? GIRL_LEGS[1 + (Math.floor(px.t * 6) % 2)] : GIRL_LEGS[0];
+  const sprite = GIRL_BODY.concat(legs), wN = GIRL_BODY[0].length;
+  for (let r = 0; r < sprite.length; r++) {
+    const row = sprite[r];
+    for (let c = 0; c < wN; c++) {
+      const ch = row[G.dir > 0 ? c : wN - 1 - c];
+      if (!ch || ch === ".") continue;
+      ctx.fillStyle = GIRL_COL[ch];
+      ctx.fillRect(gx + c * gu, gy + r * gu, gu, gu);
+    }
+  }
+}
+
+// ---------- 背景（粒と線テーマ） ----------
 function drawBackground(dt) {
+  if (CFG.theme === "pixel") return drawPixelBackground(dt);
   ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
   const speed = (0.4 + 2.6 * S.cpu / 100) * bs * dt * 30;
   const pc = rgb(loadColor(S.cpu));
@@ -269,7 +400,7 @@ function drawPanel() {
   const y0 = CFG.panelMarginY;
   const ix0 = x0 + pad, ix1 = x0 + pw - pad, iw = ix1 - ix0;
 
-  ctx.fillStyle = `rgba(13,21,48,${CFG.panelAlpha})`; rr(x0, y0, pw, panelH, 22 * s); ctx.fill();
+  ctx.fillStyle = `rgba(${PANEL_RGB},${CFG.panelAlpha})`; rr(x0, y0, pw, panelH, 22 * s); ctx.fill();
   ctx.strokeStyle = C.edge; ctx.lineWidth = 2 * s; ctx.stroke();
 
   let y = y0 + pad;
