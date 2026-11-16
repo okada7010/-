@@ -1,3 +1,5 @@
 streamlit
 openpyxl
 pillow
+streamlit-paste-button
+pillow-heif
