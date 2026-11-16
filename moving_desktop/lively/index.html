@@ -31,6 +31,7 @@ const CFG = {
   panelMarginY: 80,     // 画面の上からの距離（px）※上段のアイコンを避ける
   panelAlpha: 0.88,     // パネルの不透明度
   history: 60,          // グラフの点数（Livelyは約1秒ごとに送信 → 60秒）
+  showAI: true,         // AI 使用量（Claude / Gemini CLI）を表示する
 };
 
 const C = {
@@ -38,6 +39,7 @@ const C = {
   panel: "#0d1530", edge: "#24345f", text: "#e6ecff", sub: "#8a97c0", track: "#1c2748",
   graphBg: "#0a1026", grid: "#16203f",
   cpu: "#38d6ff", mem: "#c77dff", down: "#4ade80", up: "#fb923c", gpu: "#facc15",
+  claude: "#e08a5f", gemini: "#6aa1ff", warn: "#ef4444",
 };
 const FONT = '"Yu Gothic UI","Meiryo UI","Meiryo","Noto Sans JP",sans-serif';
 const WEEK = "日月火水木金土";
@@ -85,6 +87,56 @@ setInterval(() => {
     CurrentNetUp: Math.random() * 1.2e5, NameCpu: "デモ表示（Lively以外）", NameGpu: "", NameNetCard: "",
   });
 }, 1000);
+
+// ---------- AI 使用量（ai_usage_collector.py が書き出す usage.js を読み込む） ----------
+window.AI_USAGE = null;
+function loadUsage() {
+  const el = document.createElement("script");
+  el.src = "usage.js?t=" + Date.now();
+  el.onload = el.onerror = () => el.remove();
+  document.head.appendChild(el);
+}
+loadUsage();
+setInterval(loadUsage, 60 * 1000);
+
+function demoUsage() {
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 864e5);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const r = (a) => Math.round(a * (0.3 + Math.random()));
+  return {
+    updated: "デモ", demo: true,
+    claude: {
+      limits: [
+        { label: "5時間枠", pct: 38, resets_at: new Date(Date.now() + 2.3 * 36e5).toISOString() },
+        { label: "週間（全モデル）", pct: 62, resets_at: new Date(Date.now() + 3.2 * 864e5).toISOString() },
+      ],
+      daily: days.map(d => ({ date: d, in: r(4e5), out: r(1e5), cache: 0 })),
+    },
+    gemini: { daily: days.map(d => ({ date: d, in: r(2e5), out: r(5e4), cache: 0 })), sources: ["デモ"] },
+  };
+}
+
+function fmtTok(n) {
+  if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+  if (n >= 1e3) return (n / 1e3).toFixed(0) + "K";
+  return String(Math.round(n));
+}
+function fmtReset(iso) {
+  if (!iso) return "";
+  const ms = new Date(iso) - Date.now();
+  if (!isFinite(ms)) return "";
+  if (ms <= 0) return "まもなくリセット";
+  const h = Math.floor(ms / 36e5), m = Math.floor(ms % 36e5 / 6e4);
+  if (h >= 24) {
+    const d = new Date(iso), p2 = n => String(n).padStart(2, "0");
+    return `${d.getMonth() + 1}/${d.getDate()} ${p2(d.getHours())}:${p2(d.getMinutes())} リセット`;
+  }
+  return `あと${h}時間${m}分でリセット`;
+}
 
 // ---------- 書式 ----------
 function fmtSpeed(Bps) {
@@ -271,8 +323,68 @@ function drawPanel() {
     ctx.fillStyle = C.gpu;
     rr(ix0 + 80 * s, y + 3 * s, (iw - 80 * s) * Math.min(1, S.gpu / 100), 9 * s, 4.5 * s); ctx.fill();
   }
-  y += 18 * s;
+  y += 34 * s;
+
+  if (CFG.showAI) y = drawAI(ix0, ix1, iw, y);
   panelH = y + pad - y0;   // 次のフレームで中身に合わせた高さにする
+}
+
+// ---------- AI 使用量 ----------
+function drawAI(ix0, ix1, iw, y) {
+  const D = window.AI_USAGE || (S.demo ? (drawAI.demo ||= demoUsage()) : null);
+  y = sectionTitle(ix0, ix1, y, "AI 使用量", [["Claude", C.claude], ["Gemini CLI", C.gemini]]);
+  if (!D) {
+    text("ai_usage_start.bat を実行すると表示されます", ix0, y, 11, C.sub);
+    return y + 22 * s;
+  }
+
+  // Claude 利用枠
+  const cl = D.claude || {};
+  if (cl.error) {
+    text("Claude：" + cl.error, ix0, y, 10, C.warn);
+    y += 22 * s;
+  }
+  for (const L of (cl.limits || []).slice(0, 3)) {
+    const pct = Math.max(0, Math.min(100, L.pct));
+    const col = pct >= 90 ? C.warn : pct >= 70 ? C.gpu : C.claude;
+    text(L.label, ix0, y, 11, C.text);
+    text(`${pct.toFixed(0)}%`, ix1, y, 11, col, "bold", "right");
+    y += 17 * s;
+    ctx.fillStyle = C.track; rr(ix0, y, iw, 8 * s, 4 * s); ctx.fill();
+    if (pct > 0.5) { ctx.fillStyle = col; rr(ix0, y, iw * pct / 100, 8 * s, 4 * s); ctx.fill(); }
+    y += 11 * s;
+    text(fmtReset(L.resets_at), ix1, y, 9, C.sub, "normal", "right");
+    y += 16 * s;
+  }
+
+  // 日別トークン（直近7日）
+  const cd = (cl.daily || []), gd = ((D.gemini || {}).daily || []);
+  const n = Math.max(cd.length, gd.length);
+  if (n) {
+    y += 4 * s;
+    text("日別トークン（入力＋出力・7日）", ix0, y, 10, C.sub);
+    const tot = r => (r ? (r.in || 0) + (r.out || 0) : 0);
+    const max = Math.max(1, ...cd.map(tot), ...gd.map(tot));
+    text("最大 " + fmtTok(max), ix1, y, 9, C.sub, "normal", "right");
+    y += 18 * s;
+    const gh = 70 * s, gw = iw / n, bw = Math.max(2, gw * 0.32);
+    ctx.fillStyle = C.graphBg; ctx.fillRect(ix0, y, iw, gh);
+    for (let i = 0; i < n; i++) {
+      const bx = ix0 + gw * i + gw / 2;
+      const hc = (gh - 4) * tot(cd[i]) / max, hg = (gh - 4) * tot(gd[i]) / max;
+      ctx.fillStyle = C.claude; ctx.fillRect(bx - bw - 1, y + gh - hc, bw, hc);
+      ctx.fillStyle = C.gemini; ctx.fillRect(bx + 1, y + gh - hg, bw, hg);
+      const lab = (cd[i] || gd[i]).date.slice(5).replace("-", "/");
+      text(lab, bx, y + gh + 3 * s, 9, i === n - 1 ? C.text : C.sub, "normal", "center");
+    }
+    y += gh + 18 * s;
+    const ct = tot(cd[cd.length - 1]), gt = tot(gd[gd.length - 1]);
+    text(`今日  Claude Code ${fmtTok(ct)}`, ix0, y, 11, C.claude, "bold");
+    text(`Gemini CLI ${fmtTok(gt)}`, ix1, y, 11, C.gemini, "bold", "right");
+    y += 20 * s;
+  }
+  text(`更新 ${D.updated || "-"}`, ix1, y, 9, C.sub, "normal", "right");
+  return y + 12 * s;
 }
 
 // ---------- ループ ----------
