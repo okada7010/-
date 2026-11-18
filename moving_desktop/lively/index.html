@@ -26,11 +26,11 @@ const CFG = {
   fps: 30,              // 描画の上限（下げるほど軽い。15～60）
   particles: 60,        // 背景の粒の数（減らすほど軽い）
   linkDist: 150,        // 粒同士を線で結ぶ距離（1080p基準）
-  layout: "claude",     // "claude"（Claude専用モニター）/ "wide"（横長2列：PC＋AI）/ "tall"（縦長1列）
+  layout: "claude",     // "claude"（左＝PC、右＝Claude を大きく）/ "wide"（PC＋Claude・Gemini）/ "tall"（縦長1列）
   panelSide: "right",   // "right" / "left"
-  panelScale: 1.0,      // パネルの大きさ（1.0 = 標準）
+  panelScale: 0.9,      // パネルの大きさ（1.0 = 標準）
   fontScale: 1.2,       // 小さい文字の拡大率（1.0 = 元の大きさ）
-  panelMarginX: 130,    // 画面の端からの距離（px）※右端のアイコン列を避ける
+  panelMarginX: 110,    // 画面の端からの距離（px）※右端のアイコン列を避ける
   panelMarginY: 80,     // 画面の上からの距離（px）※上段のアイコンを避ける
   panelAlpha: 0.88,     // パネルの不透明度
   history: 60,          // グラフの点数（Livelyは約1秒ごとに送信 → 60秒）
@@ -399,7 +399,7 @@ function sectionTitle(x0, x1, y, title, legends) {
 }
 
 function panelWidth() {
-  return ({ wide: 900, claude: 560 }[CFG.layout] || 460) * s;
+  return ({ wide: 900, claude: 1018 }[CFG.layout] || 460) * s;   // claude = 左420 + 右520 + 余白
 }
 
 // ---------- Claude 専用モニター ----------
@@ -420,31 +420,16 @@ function ringGauge(cx, cy, r, pct, col, label, sub) {
 const limitColor = pct => pct >= 90 ? C.warn : pct >= 70 ? C.gpu : C.claude;
 const LIMIT_LBL = { extra_usage: "追加利用", seven_day_oauth_apps: "週間（連携アプリ）" };
 
-function drawClaudePanel() {
-  const pw = panelWidth(), pad = 30 * s;
-  const x0 = CFG.panelSide === "left" ? CFG.panelMarginX : W - pw - CFG.panelMarginX;
-  const y0 = CFG.panelMarginY;
-  const ix0 = x0 + pad, ix1 = x0 + pw - pad, iw = ix1 - ix0;
-
-  ctx.fillStyle = `rgba(${PANEL_RGB},${CFG.panelAlpha})`; rr(x0, y0, pw, panelH, 24 * s); ctx.fill();
-  ctx.strokeStyle = C.claude + "88"; ctx.lineWidth = 2 * s; ctx.stroke();
-
-  // 見出し
-  let y = y0 + pad;
-  const now = new Date(), p2 = n => String(n).padStart(2, "0");
-  text("Claude 使用状況", ix0, y, 24, C.claude, "bold");
-  text(`${p2(now.getHours())}:${p2(now.getMinutes())}`, ix1, y + 2 * s, 22, C.text, "bold", "right");
-  y += 40 * s;
-  text(`${now.getFullYear()}年${p2(now.getMonth() + 1)}月${p2(now.getDate())}日（${WEEK[now.getDay()]}）`,
-       ix1, y - 6 * s, 12, C.sub, "normal", "right");
-  y += 14 * s;
+// 右の列：Claude を大きく表示（y から描いて、描き終わりの y を返す）
+function drawClaudeColumn(ix0, ix1, iw, y) {
+  text("Claude 使用状況", ix0, y, 22, C.claude, "bold");
+  y += 38 * s;
 
   const D = window.AI_USAGE || (S.demo ? (drawAI.demo ||= demoUsage()) : null);
   if (!D) {
     y += 20 * s;
     text("ai_usage_start.bat を実行すると表示されます", ix0, y, 14, C.sub);
-    panelH = y + 30 * s + pad - y0;
-    return;
+    return y + 30 * s;
   }
   const cl = D.claude || {};
   if (cl.error) { text(cl.error, ix0, y + 4 * s, 12, C.warn); y += 26 * s; }
@@ -489,7 +474,7 @@ function drawClaudePanel() {
     text("Claude Code　日別トークン（このPC・7日）", ix0, y, 14, C.text, "bold");
     y += 30 * s;
     const max = Math.max(1, ...daily.map(tokTotal));
-    const gh = 130 * s, n = daily.length, gw = iw / n, bw = Math.max(4, gw * 0.58);
+    const gh = 175 * s, n = daily.length, gw = iw / n, bw = Math.max(4, gw * 0.58);
     ctx.fillStyle = C.graphBg; ctx.fillRect(ix0, y, iw, gh);
     for (let i = 0; i < n; i++) {
       const bx = ix0 + gw * i + gw / 2, v = tokTotal(daily[i]), h = (gh - 22 * s) * v / max;
@@ -509,16 +494,15 @@ function drawClaudePanel() {
     y += 40 * s;
   }
   text(`更新 ${D.updated || "-"}`, ix1, y, 11, C.sub, "normal", "right");
-  y += 20 * s;
-  panelH = y + pad - y0;
+  return y + 20 * s;
 }
 
 function drawPanel() {
-  if (CFG.layout === "claude") return drawClaudePanel();
-  const pw = panelWidth(), pad = 26 * s, wide = CFG.layout === "wide";
+  const claude = CFG.layout === "claude";
+  const pw = panelWidth(), pad = 26 * s, wide = CFG.layout === "wide" || claude;
   const x0 = CFG.panelSide === "left" ? CFG.panelMarginX : W - pw - CFG.panelMarginX;
   const y0 = CFG.panelMarginY;
-  const cw = wide ? (pw - pad * 3) / 2 : pw - pad * 2;      // 1列の幅
+  const cw = claude ? 420 * s : wide ? (pw - pad * 3) / 2 : pw - pad * 2;   // 左の列の幅
   const ix0 = x0 + pad, ix1 = ix0 + cw, iw = cw;
 
   ctx.fillStyle = `rgba(${PANEL_RGB},${CFG.panelAlpha})`; rr(x0, y0, pw, panelH, 22 * s); ctx.fill();
@@ -581,10 +565,12 @@ function drawPanel() {
   if (CFG.showAI) {
     if (wide) {
       // 右の列に AI 使用量（間に区切り線）
-      const rx0 = ix1 + pad, rx1 = rx0 + cw;
+      const rw = claude ? pw - pad * 3 - cw : cw;            // 右の列の幅
+      const rx0 = ix1 + pad, rx1 = rx0 + rw;
       ctx.strokeStyle = C.edge; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(ix1 + pad / 2, y0 + pad); ctx.lineTo(ix1 + pad / 2, y0 + panelH - pad); ctx.stroke();
-      yEnd = Math.max(y, drawAI(rx0, rx1, cw, y0 + pad));
+      yEnd = Math.max(y, claude ? drawClaudeColumn(rx0, rx1, rw, y0 + pad)
+                                : drawAI(rx0, rx1, cw, y0 + pad));
     } else {
       yEnd = drawAI(ix0, ix1, iw, y);
     }
