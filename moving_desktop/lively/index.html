@@ -26,9 +26,9 @@ const CFG = {
   fps: 30,              // 描画の上限（下げるほど軽い。15～60）
   particles: 60,        // 背景の粒の数（減らすほど軽い）
   linkDist: 150,        // 粒同士を線で結ぶ距離（1080p基準）
-  layout: "wide",       // "wide"（横長2列：左＝PC、右＝AI）/ "tall"（縦長1列）
+  layout: "claude",     // "claude"（Claude専用モニター）/ "wide"（横長2列：PC＋AI）/ "tall"（縦長1列）
   panelSide: "right",   // "right" / "left"
-  panelScale: 0.9,      // パネルの大きさ（1.0 = 標準）
+  panelScale: 1.0,      // パネルの大きさ（1.0 = 標準）
   fontScale: 1.2,       // 小さい文字の拡大率（1.0 = 元の大きさ）
   panelMarginX: 130,    // 画面の端からの距離（px）※右端のアイコン列を避ける
   panelMarginY: 80,     // 画面の上からの距離（px）※上段のアイコンを避ける
@@ -398,9 +398,123 @@ function sectionTitle(x0, x1, y, title, legends) {
   return y + 30 * s;
 }
 
-function panelWidth() { return (CFG.layout === "wide" ? 900 : 460) * s; }
+function panelWidth() {
+  return ({ wide: 900, claude: 560 }[CFG.layout] || 460) * s;
+}
+
+// ---------- Claude 専用モニター ----------
+function ringGauge(cx, cy, r, pct, col, label, sub) {
+  const lw = 16 * s, a0 = Math.PI * 0.75, span = Math.PI * 1.5;
+  ctx.lineCap = "round"; ctx.lineWidth = lw;
+  ctx.strokeStyle = C.track; ctx.beginPath(); ctx.arc(cx, cy, r, a0, a0 + span); ctx.stroke();
+  if (pct > 0.3) {
+    ctx.strokeStyle = col; ctx.beginPath();
+    ctx.arc(cx, cy, r, a0, a0 + span * Math.min(1, pct / 100)); ctx.stroke();
+  }
+  ctx.lineCap = "butt";
+  text(pct.toFixed(0), cx - 8 * s, cy - 4 * s, 44, C.text, "bold", "center", "middle");
+  text("%", cx + 30 * s, cy + 2 * s, 16, C.sub, "bold", "left", "middle");
+  text(label, cx, cy + r * 0.62, 15, col, "bold", "center", "middle");
+  if (sub) text(sub, cx, cy + r + 18 * s, 12, C.sub, "normal", "center", "middle");
+}
+const limitColor = pct => pct >= 90 ? C.warn : pct >= 70 ? C.gpu : C.claude;
+const LIMIT_LBL = { extra_usage: "追加利用", seven_day_oauth_apps: "週間（連携アプリ）" };
+
+function drawClaudePanel() {
+  const pw = panelWidth(), pad = 30 * s;
+  const x0 = CFG.panelSide === "left" ? CFG.panelMarginX : W - pw - CFG.panelMarginX;
+  const y0 = CFG.panelMarginY;
+  const ix0 = x0 + pad, ix1 = x0 + pw - pad, iw = ix1 - ix0;
+
+  ctx.fillStyle = `rgba(${PANEL_RGB},${CFG.panelAlpha})`; rr(x0, y0, pw, panelH, 24 * s); ctx.fill();
+  ctx.strokeStyle = C.claude + "88"; ctx.lineWidth = 2 * s; ctx.stroke();
+
+  // 見出し
+  let y = y0 + pad;
+  const now = new Date(), p2 = n => String(n).padStart(2, "0");
+  text("Claude 使用状況", ix0, y, 24, C.claude, "bold");
+  text(`${p2(now.getHours())}:${p2(now.getMinutes())}`, ix1, y + 2 * s, 22, C.text, "bold", "right");
+  y += 40 * s;
+  text(`${now.getFullYear()}年${p2(now.getMonth() + 1)}月${p2(now.getDate())}日（${WEEK[now.getDay()]}）`,
+       ix1, y - 6 * s, 12, C.sub, "normal", "right");
+  y += 14 * s;
+
+  const D = window.AI_USAGE || (S.demo ? (drawAI.demo ||= demoUsage()) : null);
+  if (!D) {
+    y += 20 * s;
+    text("ai_usage_start.bat を実行すると表示されます", ix0, y, 14, C.sub);
+    panelH = y + 30 * s + pad - y0;
+    return;
+  }
+  const cl = D.claude || {};
+  if (cl.error) { text(cl.error, ix0, y + 4 * s, 12, C.warn); y += 26 * s; }
+
+  // 大きな円ゲージ（5時間枠・週間）
+  const limits = cl.limits || [];
+  const find = k => limits.find(L => L.key === k || L.label === k);
+  const big = [find("five_hour") || find("5時間枠"), find("seven_day") || find("週間（全モデル）")]
+    .filter(Boolean);
+  const rest = limits.filter(L => !big.includes(L));
+  if (big.length) {
+    const r = 82 * s, cy = y + r + 18 * s, gw = iw / big.length;
+    big.forEach((L, i) => {
+      const pct = Math.max(0, Math.min(100, L.pct));
+      const name = (L.key === "five_hour" || L.label === "5時間枠") ? "5時間枠" : "週間";
+      ringGauge(ix0 + gw * (i + 0.5), cy, r, pct, limitColor(pct), name, fmtReset(L.resets_at));
+    });
+    y = cy + r + 44 * s;
+  }
+
+  // そのほかの枠（追加利用・モデル別など）
+  for (const L of rest.slice(0, 3)) {
+    const pct = Math.max(0, Math.min(100, L.pct)), col = limitColor(pct);
+    text(LIMIT_LBL[L.label] || LIMIT_LBL[L.key] || L.label, ix0, y, 14, C.text);
+    text(`${pct.toFixed(0)}%`, ix1, y, 14, col, "bold", "right");
+    y += 24 * s;
+    ctx.fillStyle = C.track; rr(ix0, y, iw, 10 * s, 5 * s); ctx.fill();
+    if (pct > 0.5) { ctx.fillStyle = col; rr(ix0, y, iw * pct / 100, 10 * s, 5 * s); ctx.fill(); }
+    y += 14 * s;
+    const rs = fmtReset(L.resets_at);
+    if (rs) { text(rs, ix1, y, 11, C.sub, "normal", "right"); y += 18 * s; }
+    y += 10 * s;
+  }
+
+  // Claude Code の日別トークン（7日）
+  const daily = cl.daily || [];
+  if (daily.length) {
+    y += 6 * s;
+    ctx.strokeStyle = C.edge; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(ix0, y); ctx.lineTo(ix1, y); ctx.stroke();
+    y += 16 * s;
+    text("Claude Code　日別トークン（このPC・7日）", ix0, y, 14, C.text, "bold");
+    y += 30 * s;
+    const max = Math.max(1, ...daily.map(tokTotal));
+    const gh = 130 * s, n = daily.length, gw = iw / n, bw = Math.max(4, gw * 0.58);
+    ctx.fillStyle = C.graphBg; ctx.fillRect(ix0, y, iw, gh);
+    for (let i = 0; i < n; i++) {
+      const bx = ix0 + gw * i + gw / 2, v = tokTotal(daily[i]), h = (gh - 22 * s) * v / max;
+      const today = i === n - 1;
+      ctx.fillStyle = today ? C.claude : C.claude + "99";
+      ctx.fillRect(bx - bw / 2, y + gh - h, bw, h);
+      if (v > 0) text(fmtTok(v), bx, y + gh - h - 4 * s, 10, today ? C.text : C.sub, "normal", "center", "bottom");
+      text(daily[i].date.slice(5).replace("-", "/"), bx, y + gh + 6 * s, 11,
+           today ? C.text : C.sub, today ? "bold" : "normal", "center");
+    }
+    y += gh + 34 * s;
+    const t = tokTotal(daily[n - 1]), w = daily.reduce((a, r) => a + tokTotal(r), 0);
+    text("今日", ix0, y, 13, C.sub);
+    text(fmtTok(t), ix0 + 50 * s, y - 6 * s, 26, C.claude, "bold");
+    text("7日合計", ix0 + iw / 2, y, 13, C.sub);
+    text(fmtTok(w), ix0 + iw / 2 + 66 * s, y - 6 * s, 26, C.text, "bold");
+    y += 40 * s;
+  }
+  text(`更新 ${D.updated || "-"}`, ix1, y, 11, C.sub, "normal", "right");
+  y += 20 * s;
+  panelH = y + pad - y0;
+}
 
 function drawPanel() {
+  if (CFG.layout === "claude") return drawClaudePanel();
   const pw = panelWidth(), pad = 26 * s, wide = CFG.layout === "wide";
   const x0 = CFG.panelSide === "left" ? CFG.panelMarginX : W - pw - CFG.panelMarginX;
   const y0 = CFG.panelMarginY;

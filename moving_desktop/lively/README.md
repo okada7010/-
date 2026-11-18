@@ -1,9 +1,16 @@
-# 動くデスクトップ（Lively Wallpaper 版） v7
+# 動くデスクトップ（Lively Wallpaper 版） v8　Claude 専用モニター
 
 [Lively Wallpaper](https://www.rocksdanister.com/lively/)（無料・Microsoft Store から入手可）で動かす版です。
 Lively が壁紙の埋め込みを担当するので、Windows 11 の新しいバージョンでもデスクトップのアイコンの裏で正しく動きます。
 
 ![画面](screenshot.png)
+
+## v8 の変更点
+- **Claude 専用モニター**に変更（`CFG.layout = "claude"`）。CPU・メモリ・ネット・Gemini の表示をやめ、Claude だけを大きく表示
+  - 5時間枠・週間枠：大きな円ゲージ（70%で黄、90%で赤）とリセットまでの時間
+  - 追加利用など、そのほかの枠：バー表示
+  - Claude Code の日別トークン（このPC・7日）：棒グラフに数値つき、今日・7日合計を大きく表示
+- 以前の表示に戻す場合は `index.html` の `layout` を `"wide"`（PC＋AIの2列）または `"tall"` にする
 
 ## 表示する内容
 - 背景（標準）：黒い宇宙にまたたく星と、アリス風の女の子のドット絵（オリジナル）。CPU負荷が上がると速く歩き、キラキラが増える

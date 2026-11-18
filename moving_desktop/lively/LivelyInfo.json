@@ -1,7 +1,7 @@
 {
-  "AppVersion": "1.6.0.0",
+  "AppVersion": "1.8.0.0",
   "Title": "動くデスクトップ",
-  "Desc": "CPU・メモリ・ネット速度をリアルタイム表示するライブ壁紙（背景はCPU負荷で変化）",
+  "Desc": "Claude の利用枠（5時間・週間）と Claude Code のトークン量を大きく表示するライブ壁紙",
   "Author": "APT",
   "License": "",
   "Contact": "",
