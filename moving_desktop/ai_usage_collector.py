@@ -418,11 +418,12 @@ def get_limits(force=False):
         _save_cache(c)
     out = {"limits": c.get("limits", [])}
     if c.get("fail"):
+        nxt = dt.datetime.fromtimestamp(c.get("next_try", now)).strftime("%H:%M")
         if c.get("fetched_at"):
             t = dt.datetime.fromtimestamp(c["fetched_at"]).strftime("%H:%M")
-            out["error"] = f"{c['error']}（{t} の値）"
+            out["error"] = f"{c['error']}（{t} の値を表示・{nxt} に再取得）"
         else:
-            out["error"] = c.get("error", "") + "（再取得待ち）"
+            out["error"] = f"{c.get('error', '')}（{nxt} に再取得）"
     return out
 
 

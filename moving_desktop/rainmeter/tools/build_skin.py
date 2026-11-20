@@ -90,6 +90,17 @@ Plugin=UsageMonitor
 Alias=VRAM
 Index=0
 
+; 上の2つは文字（"Total" などの名前）も返すので、表示用に数値だけを取り出す
+[MeasureGPUNum]
+Measure=Calc
+Formula=Clamp(MeasureGPU, 0, 100)
+MinValue=0
+MaxValue=100
+
+[MeasureVRAMNum]
+Measure=Calc
+Formula=MeasureVRAM
+
 [MeasureOne]
 Measure=Calc
 Formula=1
@@ -195,12 +206,12 @@ cy = y + 72
 # CPU・メモリ・GPU の円ゲージを横に3つ
 for name, measure, cx, label, color in (("MeterCPU", "MeasureCPU", 80, "CPU", "#Cpu#"),
                                          ("MeterRAM", "MeasureRAMPct", W // 2, "メモリ", "#Mem#"),
-                                         ("MeterGPU", "MeasureGPU", W - 80, "GPU", "#Gpu#")):
+                                         ("MeterGPU", "MeasureGPUNum", W - 80, "GPU", "#Gpu#")):
     b(ring(name, measure, cx, cy, 44, 9, color))
     b(f"[{name}Val]\nMeter=String\nMeterStyle=sText\nMeasureName={measure}\nText=%1%\nNumOfDecimals=0\nX={cx}\nY={cy - 12}\nStringAlign=Center\nFontSize=16\nFontWeight=700\n")
     b(f"[{name}Label]\nMeter=String\nMeterStyle=sText\nText={label}\nX={cx}\nY={cy + 30}\nStringAlign=Center\nFontColor={color}\nFontWeight=700\n")
 b(f"[MeterRAMDetail]\nMeter=String\nMeterStyle=sSub\nMeasureName=MeasureRAM\nMeasureName2=MeasureRAMTotal\nText=%1B / %2B\nAutoScale=1\nNumOfDecimals=1\nX={W // 2}\nY={cy + 50}\nStringAlign=Center\n")
-b(f"[MeterGPUDetail]\nMeter=String\nMeterStyle=sSub\nMeasureName=MeasureVRAM\nText=VRAM %1B\nAutoScale=1\nNumOfDecimals=1\nX={W - 80}\nY={cy + 50}\nStringAlign=Center\n")
+b(f"[MeterGPUDetail]\nMeter=String\nMeterStyle=sSub\nMeasureName=MeasureVRAMNum\nText=VRAM %1B\nAutoScale=1\nNumOfDecimals=1\nX={W - 80}\nY={cy + 50}\nStringAlign=Center\n")
 # ネット（ゲージの下に1行）
 ny = cy + 74
 b(f"[MeterNetTitle]\nMeter=String\nMeterStyle=sText\nText=ネット\nX=22\nY={ny + 2}\nFontColor=#Down#\nFontWeight=700\n")
@@ -210,7 +221,7 @@ b(f"[MeterNetOut]\nMeter=String\nMeterStyle=sText\nMeasureName=MeasureNetOut\nTe
 # ---- CPU / メモリ / GPU のグラフ
 gy = ny + 36
 b(f"[MeterGraphTitle]\nMeter=String\nMeterStyle=sSub\nText=CPU・メモリ・GPU（直近）\nX=22\nY={gy}\n")
-b(f"[MeterGraph]\nMeter=Line\nMeasureName=MeasureCPU\nMeasureName2=MeasureRAMPct\nMeasureName3=MeasureGPU\nX=22\nY={gy + 20}\nW={W - 44}\nH=60\n"
+b(f"[MeterGraph]\nMeter=Line\nMeasureName=MeasureCPU\nMeasureName2=MeasureRAMPct\nMeasureName3=MeasureGPUNum\nX=22\nY={gy + 20}\nW={W - 44}\nH=60\n"
   f"LineCount=3\nLineColor=#Cpu#\nLineColor2=#Mem#\nLineColor3=#Gpu#\nSolidColor=5,5,10,255\nAntiAlias=1\nAutoScale=0\n")
 
 # ---- Claude
@@ -218,8 +229,8 @@ y = gy + 100
 b(f"[MeterSep]\nMeter=Shape\nShape=Line 22,{y},{W - 22},{y} | StrokeWidth 1 | Stroke Color #Edge#\n")
 y += 14
 b(f"[MeterClaudeTitle]\nMeter=String\nMeterStyle=sText\nText=Claude 使用状況\nX=22\nY={y}\nFontSize=15\nFontWeight=700\nFontColor=#Claude#\n")
-b(f"[MeterError]\nMeter=String\nMeterStyle=sText\nMeasureName=m_error\nX={W - 22}\nY={y + 4}\nStringAlign=Right\nFontSize=9\nFontColor=#Red#\nW=260\nClipString=1\n")
-b(f"[MeterNotice]\nMeter=String\nMeterStyle=sSub\nText=右クリック →「集計プログラムを開始」で表示されます\nX=22\nY={y + 32}\nHidden=1\n")
+b(f"[MeterError]\nMeter=String\nMeterStyle=sText\nMeasureName=m_error\nX=22\nY={y + 30}\nFontSize=9\nFontColor=#Red#\nW={W - 44}\nClipString=1\n")
+b(f"[MeterNotice]\nMeter=String\nMeterStyle=sSub\nText=右クリック →「集計プログラムを開始」で表示されます\nX=22\nY={y + 30}\nHidden=1\n")
 cy = y + 40 + 70
 for name, key, cx, label in (("MeterFive", "five", 125, "5時間枠"), ("MeterWeek", "week", W - 125, "週間")):
     b(ring(name, f"m_{key}", cx, cy, 70, 13, "#Claude#"))

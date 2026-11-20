@@ -17,7 +17,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 RM = os.path.dirname(HERE)                 # moving_desktop/rainmeter
 SRC = os.path.dirname(RM)                  # moving_desktop
 OUT = sys.argv[1] if len(sys.argv) > 1 else RM
-VERSION = "1.4"
+VERSION = "1.5"
 
 ini = os.path.join(RM, "ClaudeMonitor", "ClaudeMonitor.ini")
 alice = os.path.join(RM, "ClaudeMonitor", "Alice", "Alice.ini")
