@@ -1,0 +1,12 @@
+{
+  "AppVersion": "1.8.0.0",
+  "Title": "動くデスクトップ",
+  "Desc": "CPU・メモリ・ネットと、Claude の利用枠・Claude Code のトークン量を大きく表示するライブ壁紙",
+  "Author": "APT",
+  "License": "",
+  "Contact": "",
+  "Type": 1,
+  "FileName": "index.html",
+  "Arguments": "--system-information",
+  "IsAbsolutePath": false
+}
