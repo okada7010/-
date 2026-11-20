@@ -9,7 +9,7 @@ W = 460
 COL = {
     "Bg": "6,6,14,225", "Edge": "52,52,76,255", "Text": "242,242,255,255", "Sub": "139,139,168,255",
     "Track": "27,27,42,255", "Cpu": "126,232,255,255", "Mem": "255,126,182,255",
-    "Down": "157,255,126,255", "Up": "255,216,77,255", "Claude": "224,138,95,255",
+    "Down": "157,255,126,255", "Up": "255,216,77,255", "Gpu": "201,167,255,255", "Claude": "224,138,95,255",
     "Yellow": "255,216,77,255", "Red": "239,68,68,255",
 }
 
@@ -32,7 +32,7 @@ ContextAction4=[!ToggleConfig "ClaudeMonitor\\Alice" "Alice.ini"]
 [Metadata]
 Name=Claude Monitor
 Author=APT
-Information=時計・CPU・メモリ・ネットと、Claude の利用枠（5時間・週間）・Claude Code の日別トークンを表示します。Claude の値は @Resources の ai_usage_collector.py が書き出す claude.txt から読みます。
+Information=時計・CPU・メモリ・GPU・ネットと、Claude の利用枠（5時間・週間）・Claude Code の日別トークンを表示します。Claude の値は @Resources の ai_usage_collector.py が書き出す claude.txt から読みます。
 Version=1.0
 License=社内利用
 
@@ -74,6 +74,19 @@ Interface=Best
 [MeasureNetOut]
 Measure=NetOut
 Interface=Best
+
+; GPU（Windows のパフォーマンスカウンター。全 GPU の 3D エンジン使用率）
+[MeasureGPU]
+Measure=UsageMonitor
+Alias=GPU
+Index=0
+MinValue=0
+MaxValue=100
+
+[MeasureVRAM]
+Measure=UsageMonitor
+Alias=VRAM
+Index=0
 
 [MeasureOne]
 Measure=Calc
@@ -177,22 +190,26 @@ def ring(name, measure, cx, cy, r, width, color, track=True):
 y = 100
 b("[MeterPCTitle]\nMeter=String\nMeterStyle=sText\nText=PC\nX=22\nY=%d\nFontSize=12\nFontWeight=700\n" % y)
 cy = y + 72
-b(ring("MeterCPU", "MeasureCPU", 80, cy, 44, 9, "#Cpu#"))
-b(f"[MeterCPUVal]\nMeter=String\nMeterStyle=sText\nMeasureName=MeasureCPU\nText=%1%\nX=80\nY={cy - 12}\nStringAlign=Center\nFontSize=16\nFontWeight=700\n")
-b(f"[MeterCPULabel]\nMeter=String\nMeterStyle=sText\nText=CPU\nX=80\nY={cy + 30}\nStringAlign=Center\nFontColor=#Cpu#\nFontWeight=700\n")
-b(ring("MeterRAM", "MeasureRAMPct", 195, cy, 44, 9, "#Mem#"))
-b(f"[MeterRAMVal]\nMeter=String\nMeterStyle=sText\nMeasureName=MeasureRAMPct\nText=%1%\nNumOfDecimals=0\nX=195\nY={cy - 12}\nStringAlign=Center\nFontSize=16\nFontWeight=700\n")
-b(f"[MeterRAMLabel]\nMeter=String\nMeterStyle=sText\nText=メモリ\nX=195\nY={cy + 30}\nStringAlign=Center\nFontColor=#Mem#\nFontWeight=700\n")
-b(f"[MeterRAMDetail]\nMeter=String\nMeterStyle=sSub\nMeasureName=MeasureRAM\nMeasureName2=MeasureRAMTotal\nText=%1B / %2B\nAutoScale=1\nNumOfDecimals=1\nX=195\nY={cy + 50}\nStringAlign=Center\n")
-b(f"[MeterNetTitle]\nMeter=String\nMeterStyle=sText\nText=ネット\nX=275\nY={cy - 40}\nFontColor=#Down#\nFontWeight=700\n")
-b(f"[MeterNetIn]\nMeter=String\nMeterStyle=sText\nMeasureName=MeasureNetIn\nText=↓ %1B/s\nAutoScale=1\nNumOfDecimals=1\nX=275\nY={cy - 14}\nFontSize=13\nFontColor=#Down#\n")
-b(f"[MeterNetOut]\nMeter=String\nMeterStyle=sText\nMeasureName=MeasureNetOut\nText=↑ %1B/s\nAutoScale=1\nNumOfDecimals=1\nX=275\nY={cy + 12}\nFontSize=13\nFontColor=#Up#\n")
+# CPU・メモリ・GPU の円ゲージを横に3つ
+for name, measure, cx, label, color in (("MeterCPU", "MeasureCPU", 80, "CPU", "#Cpu#"),
+                                         ("MeterRAM", "MeasureRAMPct", W // 2, "メモリ", "#Mem#"),
+                                         ("MeterGPU", "MeasureGPU", W - 80, "GPU", "#Gpu#")):
+    b(ring(name, measure, cx, cy, 44, 9, color))
+    b(f"[{name}Val]\nMeter=String\nMeterStyle=sText\nMeasureName={measure}\nText=%1%\nNumOfDecimals=0\nX={cx}\nY={cy - 12}\nStringAlign=Center\nFontSize=16\nFontWeight=700\n")
+    b(f"[{name}Label]\nMeter=String\nMeterStyle=sText\nText={label}\nX={cx}\nY={cy + 30}\nStringAlign=Center\nFontColor={color}\nFontWeight=700\n")
+b(f"[MeterRAMDetail]\nMeter=String\nMeterStyle=sSub\nMeasureName=MeasureRAM\nMeasureName2=MeasureRAMTotal\nText=%1B / %2B\nAutoScale=1\nNumOfDecimals=1\nX={W // 2}\nY={cy + 50}\nStringAlign=Center\n")
+b(f"[MeterGPUDetail]\nMeter=String\nMeterStyle=sSub\nMeasureName=MeasureVRAM\nText=VRAM %1B\nAutoScale=1\nNumOfDecimals=1\nX={W - 80}\nY={cy + 50}\nStringAlign=Center\n")
+# ネット（ゲージの下に1行）
+ny = cy + 74
+b(f"[MeterNetTitle]\nMeter=String\nMeterStyle=sText\nText=ネット\nX=22\nY={ny + 2}\nFontColor=#Down#\nFontWeight=700\n")
+b(f"[MeterNetIn]\nMeter=String\nMeterStyle=sText\nMeasureName=MeasureNetIn\nText=↓ %1B/s\nAutoScale=1\nNumOfDecimals=1\nX=90\nY={ny}\nFontSize=13\nFontColor=#Down#\n")
+b(f"[MeterNetOut]\nMeter=String\nMeterStyle=sText\nMeasureName=MeasureNetOut\nText=↑ %1B/s\nAutoScale=1\nNumOfDecimals=1\nX=270\nY={ny}\nFontSize=13\nFontColor=#Up#\n")
 
-# ---- CPU / メモリ / ネットのグラフ
-gy = cy + 76
-b(f"[MeterGraphTitle]\nMeter=String\nMeterStyle=sSub\nText=CPU・メモリ（直近）\nX=22\nY={gy}\n")
-b(f"[MeterGraph]\nMeter=Line\nMeasureName=MeasureCPU\nMeasureName2=MeasureRAMPct\nX=22\nY={gy + 20}\nW={W - 44}\nH=60\n"
-  f"LineCount=2\nLineColor=#Cpu#\nLineColor2=#Mem#\nSolidColor=5,5,10,255\nAntiAlias=1\nAutoScale=0\n")
+# ---- CPU / メモリ / GPU のグラフ
+gy = ny + 36
+b(f"[MeterGraphTitle]\nMeter=String\nMeterStyle=sSub\nText=CPU・メモリ・GPU（直近）\nX=22\nY={gy}\n")
+b(f"[MeterGraph]\nMeter=Line\nMeasureName=MeasureCPU\nMeasureName2=MeasureRAMPct\nMeasureName3=MeasureGPU\nX=22\nY={gy + 20}\nW={W - 44}\nH=60\n"
+  f"LineCount=3\nLineColor=#Cpu#\nLineColor2=#Mem#\nLineColor3=#Gpu#\nSolidColor=5,5,10,255\nAntiAlias=1\nAutoScale=0\n")
 
 # ---- Claude
 y = gy + 100

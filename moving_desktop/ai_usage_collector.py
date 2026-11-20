@@ -39,12 +39,15 @@ RAINMETER_FILE = os.path.join(BASE_DIR, "claude.txt")   # Rainmeter スキンが
 WALLPAPER_TITLE = "動くデスクトップ"
 
 INTERVAL_SEC = 60          # 集計間隔
-LIMIT_INTERVAL_SEC = 300   # Claude 利用枠の問い合わせ間隔（控えめに5分）
+LIMIT_INTERVAL_SEC = 600   # Claude 利用枠の問い合わせ間隔（控えめに10分）
 DAYS = 7                   # 日別グラフの日数
 
 HOME = os.path.expanduser("~")
 CLAUDE_DIR = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(HOME, ".claude")
 GEMINI_DIR = os.path.join(HOME, ".gemini")
+# Lively 版・Rainmeter 版で共有する、利用枠の取得結果とロック
+SHARED_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.join(HOME, ".cache"), "ClaudeMonitor")
+CACHE_FILE = os.path.join(SHARED_DIR, "limits_cache.json")
 
 
 def log(msg):
@@ -116,8 +119,15 @@ def fetch_claude_limits():
             raw = json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         if e.code in (401, 403):
-            return {"error": "ログインの有効期限切れ（Claude Code を一度起動すると更新されます）"}
-        return {"error": f"取得失敗（HTTP {e.code}）"}
+            return {"error": "ログインの有効期限切れ（Claude Code を一度起動すると更新されます）",
+                    "code": e.code}
+        if e.code == 429:
+            try:
+                retry = int(e.headers.get("Retry-After") or 0)
+            except ValueError:
+                retry = 0
+            return {"error": "Anthropic 側の回数制限", "code": 429, "retry_after": retry}
+        return {"error": f"取得失敗（HTTP {e.code}）", "code": e.code}
     except Exception as e:
         return {"error": f"取得失敗（{type(e).__name__}）"}
 
@@ -369,11 +379,73 @@ def write_rainmeter(data, path):
         log(f"write rainmeter failed: {e!r}")
 
 
-def collect(state):
+def _load_cache():
+    try:
+        with open(CACHE_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_cache(c):
+    try:
+        os.makedirs(SHARED_DIR, exist_ok=True)
+        tmp = CACHE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(c, f, ensure_ascii=False)
+        os.replace(tmp, CACHE_FILE)
+    except OSError as e:
+        log(f"cache write failed: {e!r}")
+
+
+def get_limits(force=False):
+    """利用枠を返す。問い合わせは共有キャッシュで間引き、失敗時は時間をおいて再試行し、前回の値を使う"""
+    c = _load_cache()
     now = time.time()
-    if now - state.get("limit_at", 0) >= LIMIT_INTERVAL_SEC or "limits" not in state:
-        state["limits"] = fetch_claude_limits()
-        state["limit_at"] = now
+    if force or now >= c.get("next_try", 0):
+        r = fetch_claude_limits()
+        if "limits" in r:
+            c.update(limits=r["limits"], fetched_at=now, fail=0, error="",
+                     next_try=now + LIMIT_INTERVAL_SEC)
+        else:
+            fail = c.get("fail", 0) + 1
+            if r.get("code") == 429:      # 回数制限：15分→30分→60分と間隔をあける
+                wait = max(r.get("retry_after", 0), min(3600, 900 * 2 ** (fail - 1)))
+            else:
+                wait = min(3600, 300 * fail)
+            c.update(fail=fail, error=r["error"], next_try=now + wait)
+            log(f"limits error: {r['error']} (retry in {wait}s)")
+        _save_cache(c)
+    out = {"limits": c.get("limits", [])}
+    if c.get("fail"):
+        if c.get("fetched_at"):
+            t = dt.datetime.fromtimestamp(c["fetched_at"]).strftime("%H:%M")
+            out["error"] = f"{c['error']}：{t} 時点の値"
+        else:
+            out["error"] = c.get("error", "")
+    return out
+
+
+def acquire_lock():
+    """同じフォルダの集計プログラムの二重起動を防ぐ（取れなければ None）"""
+    path = os.path.join(BASE_DIR, "collector.lock")
+    f = open(path, "a+")
+    try:
+        if os.name == "nt":
+            import msvcrt
+            f.seek(0)
+            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return f
+    except OSError:
+        f.close()
+        return None
+
+
+def collect(state, force=False):
+    state["limits"] = get_limits(force)
     cc, n_cc = claude_code_daily()
     gm, gm_src = gemini_daily()
     return {
@@ -442,6 +514,10 @@ def main():
         print("Rainmeter 用:", RAINMETER_FILE)
         return
 
+    lock = acquire_lock()
+    if lock is None:
+        log("already running")   # すでに動いているので何もしない
+        return
     log("start")
     while not os.path.exists(STOP_FLAG):
         try:
