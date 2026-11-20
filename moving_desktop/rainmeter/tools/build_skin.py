@@ -231,7 +231,7 @@ y += 14
 b(f"[MeterClaudeTitle]\nMeter=String\nMeterStyle=sText\nText=Claude 使用状況\nX=22\nY={y}\nFontSize=15\nFontWeight=700\nFontColor=#Claude#\n")
 b(f"[MeterError]\nMeter=String\nMeterStyle=sText\nMeasureName=m_error\nX=22\nY={y + 30}\nFontSize=9\nFontColor=#Red#\nW={W - 44}\nClipString=1\n")
 b(f"[MeterNotice]\nMeter=String\nMeterStyle=sSub\nText=右クリック →「集計プログラムを開始」で表示されます\nX=22\nY={y + 30}\nHidden=1\n")
-cy = y + 40 + 70
+cy = y + 52 + 70
 for name, key, cx, label in (("MeterFive", "five", 125, "5時間枠"), ("MeterWeek", "week", W - 125, "週間")):
     b(ring(name, f"m_{key}", cx, cy, 70, 13, "#Claude#"))
     b(f"[{name}Val]\nMeter=String\nMeterStyle=sText\nMeasureName=m_{key}\nText=%1\nX={cx - 6}\nY={cy - 26}\nStringAlign=Center\nFontSize=30\nFontWeight=700\n")
