@@ -15,11 +15,11 @@ Lively 版のようにブラウザを動かさないので、メモリは数十M
 | キャラ（別スキン） | 女の子が横に歩いて往復し、後ろにキラキラを残す。CPU 負荷で歩く速さが上がり、ときどき立ち止まる |
 
 ## ダウンロード
-**[ClaudeMonitor_v1.2.rmskin](ClaudeMonitor_v1.2.rmskin)** を開き、右上の「↓（Download raw file）」で保存します。
+**[ClaudeMonitor_v1.3.rmskin](ClaudeMonitor_v1.3.rmskin)** を開き、右上の「↓（Download raw file）」で保存します。
 
 ## 導入手順
 1. Rainmeter を https://www.rainmeter.net/ からインストールします（初回のみ）。最初に出てくるサンプルのスキンは、右クリック →「スキンを閉じる」で消して構いません。
-2. ダウンロードした **`ClaudeMonitor_v1.2.rmskin` をダブルクリック** →「Install」を押します。パネルと、歩くキャラがデスクトップに表示されます。
+2. ダウンロードした **`ClaudeMonitor_v1.3.rmskin` をダブルクリック** →「Install」を押します。パネルと、歩くキャラがデスクトップに表示されます。
 3. Claude の値を出すため、パネルを**右クリック →「カスタムスキンアクション」→「集計プログラムを開始」**を選びます（Python が必要。1分以内に表示されます）。
    - うまく出ないときは、同じメニューの「取得テスト」で内容を確認できます。
    - PC 起動時に自動で集計したい場合は、`ドキュメント\Rainmeter\Skins\ClaudeMonitor\@Resources\ai_usage_autostart_on.bat` を1回実行します。
@@ -27,10 +27,12 @@ Lively 版のようにブラウザを動かさないので、メモリは数十M
 5. キャラを消したり出したりするときは、パネルを右クリック →「カスタムスキンアクション」→「キャラ（アリス）の表示／非表示」。
    歩くはばや速さは、キャラを右クリック →「歩くはばを変える」で開く設定の `Range`（はば）・`SpeedBase` / `SpeedCpu`（速さ）・`PauseChance`（立ち止まりやすさ）で変えられます。
 
-## 更新するとき（v1.1 → v1.2 など）
+## 更新するとき
 1. パネルを右クリック →「カスタムスキンアクション」→「集計プログラムを停止」。
 2. 新しい `.rmskin` をダブルクリック →「Install」。
 3. もう一度「集計プログラムを開始」。
+
+「Unable to move to ...@Backup\ClaudeMonitor」と出てインストールできないときは、集計プログラムが止まっていません。手順1をやり直すか、タスクマネージャーで「Python」（pythonw.exe）を終了してから、もう一度インストールしてください（v1.3 以降は起きにくくなっています）。
 
 ## Lively 版を使っていた場合
 Lively はアンインストールするか、壁紙を元に戻してください。Lively 版で常駐させた集計プログラムは `ai_usage_stop.bat` で止め、スタートアップ登録していた場合は `ai_usage_autostart_off.bat` で解除してから、Rainmeter 版の @Resources のもので登録し直してください。

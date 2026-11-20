@@ -428,7 +428,12 @@ def get_limits(force=False):
 
 def acquire_lock():
     """同じフォルダの集計プログラムの二重起動を防ぐ（取れなければ None）"""
-    path = os.path.join(BASE_DIR, "collector.lock")
+    # ロックはスキン／壁紙のフォルダの外（共有フォルダ）に置く。フォルダを開いたままにすると、
+    # Rainmeter や Lively の更新時にフォルダを移動できなくなるため
+    import hashlib
+    os.makedirs(SHARED_DIR, exist_ok=True)
+    key = hashlib.md5(BASE_DIR.lower().encode("utf-8")).hexdigest()[:12]
+    path = os.path.join(SHARED_DIR, f"collector_{key}.lock")
     f = open(path, "a+")
     try:
         if os.name == "nt":
@@ -491,6 +496,12 @@ def setup_gemini():
 
 
 def main():
+    # 作業フォルダを共有フォルダへ移す（スキンのフォルダを使用中にしないため）
+    try:
+        os.makedirs(SHARED_DIR, exist_ok=True)
+        os.chdir(SHARED_DIR)
+    except OSError:
+        pass
     ap = argparse.ArgumentParser(description="AI使用量コレクター")
     ap.add_argument("--once", action="store_true", help="1回だけ集計して表示")
     ap.add_argument("--out", action="append", help="usage.js の書き出し先フォルダ（複数可）")
