@@ -1,7 +1,4 @@
-moving_desktop/moving_desktop.log
-moving_desktop/stop.flag
-moving_desktop/widget_pos.txt
-moving_desktop/lively/usage.js
-moving_desktop/lively/*.log
-moving_desktop/lively/stop_collector.flag
 __pycache__/
+moving_desktop/usage.js
+moving_desktop/*.log
+moving_desktop/stop_collector.flag
