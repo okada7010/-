@@ -26,6 +26,8 @@ ContextTitle2=集計プログラムを停止（ai_usage_stop.bat）
 ContextAction2=["#@#ai_usage_stop.bat"]
 ContextTitle3=取得テスト（ai_usage_check.bat）
 ContextAction3=["#@#ai_usage_check.bat"]
+ContextTitle4=キャラ（アリス）の表示／非表示
+ContextAction4=[!ToggleConfig "ClaudeMonitor\\Alice" "Alice.ini"]
 
 [Metadata]
 Name=Claude Monitor
@@ -35,10 +37,18 @@ Version=1.0
 License=社内利用
 
 [Variables]
+@Include=#@#state.inc
 Font=Yu Gothic UI""")
 for k, v in COL.items():
     w(f"{k}={v}")
 w("""
+; ============ 初回だけキャラのスキンも表示する ============
+[mFirstRun]
+Measure=Calc
+Formula=#AliceShown#
+IfCondition=(mFirstRun = 0)
+IfTrueAction=[!ActivateConfig "ClaudeMonitor\\Alice" "Alice.ini"][!WriteKeyValue Variables AliceShown 1 "#@#state.inc"]
+
 ; ============ 計測 ============
 [MeasureCPU]
 Measure=CPU

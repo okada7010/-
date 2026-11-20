@@ -10,16 +10,21 @@ import os
 import struct
 import subprocess
 import sys
+import tempfile
 import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RM = os.path.dirname(HERE)                 # moving_desktop/rainmeter
 SRC = os.path.dirname(RM)                  # moving_desktop
 OUT = sys.argv[1] if len(sys.argv) > 1 else RM
-VERSION = "1.0"
+VERSION = "1.1"
 
 ini = os.path.join(RM, "ClaudeMonitor", "ClaudeMonitor.ini")
+alice = os.path.join(RM, "ClaudeMonitor", "Alice", "Alice.ini")
 subprocess.run([sys.executable, os.path.join(HERE, "build_skin.py"), ini], check=True)
+subprocess.run([sys.executable, os.path.join(HERE, "build_alice.py"), alice], check=True)
+sprites = tempfile.mkdtemp()
+subprocess.run([sys.executable, os.path.join(HERE, "make_sprites.py"), sprites], check=True)
 
 resources = ["ai_usage_collector.py", "ai_usage_start.bat", "ai_usage_stop.bat", "ai_usage_check.bat",
              "ai_usage_autostart_on.bat", "ai_usage_autostart_off.bat"]
@@ -33,6 +38,10 @@ buf = io.BytesIO()
 with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
     z.writestr("RMSKIN.ini", rmskin_ini)
     z.write(ini, "Skins/ClaudeMonitor/ClaudeMonitor.ini")
+    z.write(alice, "Skins/ClaudeMonitor/Alice/Alice.ini")
+    z.writestr("Skins/ClaudeMonitor/@Resources/state.inc", "[Variables]\r\nAliceShown=0\r\n")
+    for f in sorted(os.listdir(sprites)):
+        z.write(os.path.join(sprites, f), "Skins/ClaudeMonitor/@Resources/alice/" + f)
     for f in resources:
         z.write(os.path.join(SRC, f), "Skins/ClaudeMonitor/@Resources/" + f)
 data = buf.getvalue()
