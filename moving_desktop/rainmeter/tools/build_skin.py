@@ -126,6 +126,7 @@ UpdateRate=30
 keys = ["error", "five", "five_reset", "week", "week_reset", "extra", "today", "total7", "updated"]
 for i in range(1, 8):
     keys += [f"d{i}", f"l{i}", f"v{i}"]
+keys += ["five_est", "week_est", "maxday", "maxctx", "maxctx_model"]   # MAX 系（claude.txt の末尾）
 regexp = "(?m)" + r"\n".join(f"{k}=(.*)" for k in keys)
 w(f'RegExp="{regexp}"')
 w("")
@@ -238,7 +239,9 @@ for name, key, cx, label in (("MeterFive", "five", 125, "5時間枠"), ("MeterWe
     b(f"[{name}Pct]\nMeter=String\nMeterStyle=sSub\nText=%\nX={cx + 30}\nY={cy - 8}\nFontSize=12\n")
     b(f"[{name}Label]\nMeter=String\nMeterStyle=sText\nText={label}\nX={cx}\nY={cy + 26}\nStringAlign=Center\nFontColor=#Claude#\nFontWeight=700\nFontSize=11\n")
     b(f"[{name}Reset]\nMeter=String\nMeterStyle=sSub\nMeasureName=m_{key}_reset\nX={cx}\nY={cy + 76}\nStringAlign=Center\n")
-y = cy + 104
+    b(f"[{name}Est]\nMeter=String\nMeterStyle=sSub\nMeasureName=m_{key}_est\nX={cx}\nY={cy + 94}\nStringAlign=Center\nFontSize=8\nFontColor=#Claude#\n")
+b(f"[MeterEstNote]\nMeter=String\nMeterStyle=sSub\nText=※推定上限は、このPCの Claude Code の使用量と使用率からの目安（claude.ai のチャット分は含まない）\nX=22\nY={cy + 114}\nFontSize=7\nW={W - 44}\nClipString=1\n")
+y = cy + 140
 b(f"[MeterExtraLabel]\nMeter=String\nMeterStyle=sText\nText=追加利用\nX=22\nY={y}\nFontSize=11\n")
 b(f"[MeterExtraVal]\nMeter=String\nMeterStyle=sText\nMeasureName=m_extra\nText=%1%\nX={W - 22}\nY={y}\nStringAlign=Right\nFontSize=11\nFontWeight=700\nFontColor=#Claude#\n")
 b(f"[MeterExtraTrack]\nMeter=Shape\nShape=Rectangle 22,{y + 24},{W - 44},8,4 | Fill Color #Track# | StrokeWidth 0\n")
@@ -247,6 +250,7 @@ b(f"[MeterExtraBar]\nMeter=Bar\nMeasureName=m_extra\nX=22\nY={y + 24}\nW={W - 44
 # ---- 日別トークン
 y += 48
 b(f"[MeterDailyTitle]\nMeter=String\nMeterStyle=sText\nText=Claude Code 日別トークン（このPC・7日）\nX=22\nY={y}\nFontSize=10\nFontWeight=700\n")
+b(f"[MeterMaxDay]\nMeter=String\nMeterStyle=sSub\nMeasureName=m_maxday\nX={W - 22}\nY={y + 2}\nStringAlign=Right\nFontColor=#Claude#\n")
 y += 26
 ch = 110
 b(f"[MeterDailyBg]\nMeter=Shape\nShape=Rectangle 22,{y},{W - 44},{ch} | Fill Color 5,5,10,255 | StrokeWidth 0\n")
@@ -264,7 +268,11 @@ b(f"[MeterTodayLabel]\nMeter=String\nMeterStyle=sSub\nText=今日\nX=22\nY={y + 
 b(f"[MeterToday]\nMeter=String\nMeterStyle=sText\nMeasureName=m_today\nX=60\nY={y}\nFontSize=18\nFontWeight=700\nFontColor=#Claude#\n")
 b(f"[MeterTotalLabel]\nMeter=String\nMeterStyle=sSub\nText=7日合計\nX={W // 2}\nY={y + 8}\nFontSize=10\n")
 b(f"[MeterTotal]\nMeter=String\nMeterStyle=sText\nMeasureName=m_total7\nX={W // 2 + 58}\nY={y}\nFontSize=18\nFontWeight=700\n")
-y += 38
+y += 40
+b(f"[MeterCtxLabel]\nMeter=String\nMeterStyle=sSub\nText=1回の会話の最大（実績）\nX=22\nY={y + 4}\nFontSize=10\n")
+b(f"[MeterCtx]\nMeter=String\nMeterStyle=sText\nMeasureName=m_maxctx\nX=190\nY={y}\nFontSize=14\nFontWeight=700\nFontColor=#Claude#\n")
+b(f"[MeterCtxModel]\nMeter=String\nMeterStyle=sSub\nMeasureName=m_maxctx_model\nX={W - 22}\nY={y + 5}\nStringAlign=Right\nFontSize=9\n")
+y += 30
 b(f"[MeterUpdated]\nMeter=String\nMeterStyle=sSub\nMeasureName=m_updated\nText=更新 %1\nX={W - 22}\nY={y}\nStringAlign=Right\nFontSize=8\n")
 H = y + 26
 

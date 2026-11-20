@@ -156,7 +156,16 @@ def fetch_claude_limits():
 # ------------------------------------------------------------
 # Claude Code の日別トークン量
 # ------------------------------------------------------------
-def claude_code_daily():
+def to_epoch(ts):
+    try:
+        return dt.datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp()
+    except (ValueError, TypeError):
+        return None
+
+
+def claude_code_daily(events=None):
+    """日別トークンを返す。events にリストを渡すと、1回ごとの記録
+    (時刻, 入力＋出力, 1回のコンテキスト量, モデル名) も追加する"""
     keys = day_keys()
     daily = {k: {"in": 0, "out": 0, "cache": 0} for k in keys}
     seen = set()
@@ -183,10 +192,16 @@ def claude_code_daily():
                     d = local_date(o.get("timestamp"))
                     if d not in daily:
                         continue
-                    daily[d]["in"] += int(u.get("input_tokens") or 0)
-                    daily[d]["out"] += int(u.get("output_tokens") or 0)
-                    daily[d]["cache"] += int(u.get("cache_creation_input_tokens") or 0) \
+                    t_in = int(u.get("input_tokens") or 0)
+                    t_out = int(u.get("output_tokens") or 0)
+                    t_cache = int(u.get("cache_creation_input_tokens") or 0) \
                         + int(u.get("cache_read_input_tokens") or 0)
+                    daily[d]["in"] += t_in
+                    daily[d]["out"] += t_out
+                    daily[d]["cache"] += t_cache
+                    if events is not None:
+                        events.append((to_epoch(o.get("timestamp")), t_in + t_out,
+                                       t_in + t_cache + t_out, msg.get("model") or ""))
         except OSError:
             continue
     return [{"date": k, **daily[k]} for k in keys], len(files)
@@ -364,11 +379,27 @@ def write_rainmeter(data, path):
         "total7": fmt_tok(sum(tot)),
         "updated": dt.datetime.now().strftime("%m/%d %H:%M"),
     }
+    st = cl.get("stats", {})
+    est = st.get("estimate", {})
+
+    def est_text(key):
+        e = est.get(key) or {}
+        if e.get("est_max"):
+            return f"推定上限 約{fmt_tok(e['est_max'])}（使用 {fmt_tok(e['used'])}）"
+        return f"この期間の使用 {fmt_tok(e.get('used', 0))}" if e else ""
+
+    mi = max(range(len(tot)), key=lambda i: tot[i]) if tot and max(tot) > 0 else None
     for i in range(7):
         d = daily[i] if i < len(daily) else None
         lines[f"d{i + 1}"] = f"{(tot[i] / mx * 100):.0f}" if d else "0"
         lines[f"l{i + 1}"] = d["date"][5:].replace("-", "/") if d else ""
         lines[f"v{i + 1}"] = fmt_tok(tot[i]) if d and tot[i] else ""
+    # 7日分の後ろに、MAX 系の数字を追加（スキンの読み取り順と合わせる）
+    lines["five_est"] = est_text("five_hour")
+    lines["week_est"] = est_text("seven_day")
+    lines["maxday"] = f"最大 {fmt_tok(tot[mi])}（{daily[mi]['date'][5:].replace('-', '/')}）" if mi is not None else ""
+    lines["maxctx"] = fmt_tok(st.get("max_context", 0)) if st.get("max_context") else "-"
+    lines["maxctx_model"] = st.get("max_context_model", "")
     body = "".join(f"{k}={v}\n" for k, v in lines.items()) + "end=1\n"
     try:
         tmp = path + ".tmp"
@@ -450,13 +481,40 @@ def acquire_lock():
         return None
 
 
+WINDOW_SEC = {"five_hour": 5 * 3600, "seven_day": 7 * 86400,
+              "seven_day_opus": 7 * 86400, "seven_day_sonnet": 7 * 86400}
+
+
+def claude_stats(limits, events):
+    """MAX 系の数字：利用枠の推定上限、1回の最大コンテキスト（実績）"""
+    est = {}
+    for L in limits:
+        span = WINDOW_SEC.get(L.get("key"))
+        end = to_epoch(L.get("resets_at"))
+        if not span or not end:
+            continue
+        used = sum(e[1] for e in events if e[0] and e[0] >= end - span)
+        pct = L.get("pct") or 0
+        est[L["key"]] = {"used": used, "est_max": used / (pct / 100) if pct >= 1 and used else None}
+    ctx = max(events, key=lambda e: e[2], default=None)
+    latest = max((e for e in events if e[0]), key=lambda e: e[0], default=None)
+    return {
+        "estimate": est,
+        "max_context": ctx[2] if ctx else 0,
+        "max_context_model": ctx[3] if ctx else "",
+        "latest_model": latest[3] if latest else "",
+    }
+
+
 def collect(state, force=False):
     state["limits"] = get_limits(force)
-    cc, n_cc = claude_code_daily()
+    events = []
+    cc, n_cc = claude_code_daily(events)
+    stats = claude_stats(state["limits"].get("limits", []), events)
     gm, gm_src = gemini_daily()
     return {
         "updated": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "claude": {**state["limits"], "daily": cc, "files": n_cc},
+        "claude": {**state["limits"], "daily": cc, "files": n_cc, "stats": stats},
         "gemini": {"daily": gm, "sources": gm_src},
     }
 

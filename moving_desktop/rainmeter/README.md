@@ -12,14 +12,15 @@ Lively 版のようにブラウザを動かさないので、メモリは数十M
 | 上 | 時計・日付 |
 | PC | CPU・メモリ・GPU の円ゲージ、メモリ使用量、VRAM 使用量、ネット受信・送信速度、CPU・メモリ・GPU のグラフ |
 | Claude | 5時間枠・週間枠の大きな円ゲージ（70%で黄・90%で赤）とリセットまでの時間、追加利用、Claude Code の日別トークン（このPC・7日）、今日・7日合計 |
+| Claude（MAX 系） | ・5時間枠・週間枠の**推定上限**（この期間のトークン使用量 ÷ 使用率。このPCの Claude Code 分だけで計算するため目安）<br>・7日間で一番多かった日のトークン数と日付<br>・1回の会話で使った最大のトークン数（実績）とモデル名 |
 | キャラ（別スキン） | 女の子が横に歩いて往復し、後ろにキラキラを残す。CPU 負荷で歩く速さが上がり、ときどき立ち止まる |
 
 ## ダウンロード
-**[ClaudeMonitor_v1.5.rmskin](ClaudeMonitor_v1.5.rmskin)** を開き、右上の「↓（Download raw file）」で保存します。
+**[ClaudeMonitor_v1.6.rmskin](ClaudeMonitor_v1.6.rmskin)** を開き、右上の「↓（Download raw file）」で保存します。
 
 ## 導入手順
 1. Rainmeter を https://www.rainmeter.net/ からインストールします（初回のみ）。最初に出てくるサンプルのスキンは、右クリック →「スキンを閉じる」で消して構いません。
-2. ダウンロードした **`ClaudeMonitor_v1.5.rmskin` をダブルクリック** →「Install」を押します。パネルと、歩くキャラがデスクトップに表示されます。
+2. ダウンロードした **`ClaudeMonitor_v1.6.rmskin` をダブルクリック** →「Install」を押します。パネルと、歩くキャラがデスクトップに表示されます。
 3. Claude の値を出すため、パネルを**右クリック →「カスタムスキンアクション」→「集計プログラムを開始」**を選びます（Python が必要。1分以内に表示されます）。
    - うまく出ないときは、同じメニューの「取得テスト」で内容を確認できます。
    - PC 起動時に自動で集計したい場合は、`ドキュメント\Rainmeter\Skins\ClaudeMonitor\@Resources\ai_usage_autostart_on.bat` を1回実行します。
