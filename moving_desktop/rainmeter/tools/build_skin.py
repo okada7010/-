@@ -7,7 +7,7 @@ import sys
 
 W = 460
 COL = {
-    "Bg": "6,6,14,225", "Edge": "52,52,76,255", "Text": "242,242,255,255", "Sub": "139,139,168,255",
+    "Bg": "6,6,14,242", "Edge": "52,52,76,255", "Text": "242,242,255,255", "Sub": "139,139,168,255",
     "Track": "27,27,42,255", "Cpu": "126,232,255,255", "Mem": "255,126,182,255",
     "Down": "157,255,126,255", "Up": "255,216,77,255", "Gpu": "201,167,255,255", "Claude": "224,138,95,255",
     "Yellow": "255,216,77,255", "Red": "239,68,68,255",
@@ -77,14 +77,16 @@ Interface=Best
 
 ; GPU（Windows のパフォーマンスカウンター。全 GPU の 3D エンジン使用率）
 [MeasureGPU]
-Measure=UsageMonitor
+Measure=Plugin
+Plugin=UsageMonitor
 Alias=GPU
 Index=0
 MinValue=0
 MaxValue=100
 
 [MeasureVRAM]
-Measure=UsageMonitor
+Measure=Plugin
+Plugin=UsageMonitor
 Alias=VRAM
 Index=0
 

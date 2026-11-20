@@ -15,11 +15,11 @@ Lively 版のようにブラウザを動かさないので、メモリは数十M
 | キャラ（別スキン） | 女の子が横に歩いて往復し、後ろにキラキラを残す。CPU 負荷で歩く速さが上がり、ときどき立ち止まる |
 
 ## ダウンロード
-**[ClaudeMonitor_v1.3.rmskin](ClaudeMonitor_v1.3.rmskin)** を開き、右上の「↓（Download raw file）」で保存します。
+**[ClaudeMonitor_v1.4.rmskin](ClaudeMonitor_v1.4.rmskin)** を開き、右上の「↓（Download raw file）」で保存します。
 
 ## 導入手順
 1. Rainmeter を https://www.rainmeter.net/ からインストールします（初回のみ）。最初に出てくるサンプルのスキンは、右クリック →「スキンを閉じる」で消して構いません。
-2. ダウンロードした **`ClaudeMonitor_v1.3.rmskin` をダブルクリック** →「Install」を押します。パネルと、歩くキャラがデスクトップに表示されます。
+2. ダウンロードした **`ClaudeMonitor_v1.4.rmskin` をダブルクリック** →「Install」を押します。パネルと、歩くキャラがデスクトップに表示されます。
 3. Claude の値を出すため、パネルを**右クリック →「カスタムスキンアクション」→「集計プログラムを開始」**を選びます（Python が必要。1分以内に表示されます）。
    - うまく出ないときは、同じメニューの「取得テスト」で内容を確認できます。
    - PC 起動時に自動で集計したい場合は、`ドキュメント\Rainmeter\Skins\ClaudeMonitor\@Resources\ai_usage_autostart_on.bat` を1回実行します。

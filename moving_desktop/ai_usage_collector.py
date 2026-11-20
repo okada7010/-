@@ -355,11 +355,11 @@ def write_rainmeter(data, path):
     mx = max(tot + [1])
     lines = {
         "error": cl.get("error", ""),
-        "five": f"{five['pct']:.0f}" if five else "0",
+        "five": f"{five['pct']:.0f}" if five else "-",
         "five_reset": fmt_reset(five.get("resets_at")) if five else "",
-        "week": f"{week['pct']:.0f}" if week else "0",
+        "week": f"{week['pct']:.0f}" if week else "-",
         "week_reset": fmt_reset(week.get("resets_at")) if week else "",
-        "extra": f"{extra['pct']:.0f}" if extra else "0",
+        "extra": f"{extra['pct']:.0f}" if extra else "-",
         "today": fmt_tok(tot[-1]) if tot else "0",
         "total7": fmt_tok(sum(tot)),
         "updated": dt.datetime.now().strftime("%m/%d %H:%M"),
@@ -422,7 +422,7 @@ def get_limits(force=False):
             t = dt.datetime.fromtimestamp(c["fetched_at"]).strftime("%H:%M")
             out["error"] = f"{c['error']}：{t} 時点の値"
         else:
-            out["error"] = c.get("error", "")
+            out["error"] = c.get("error", "") + "：しばらく待って再取得します"
     return out
 
 
