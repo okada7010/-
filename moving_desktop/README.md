@@ -1,5 +1,8 @@
 # 動くデスクトップ（Lively Wallpaper 版） v8
 
+> **軽い版（Rainmeter 版）もあります → [rainmeter/](rainmeter/README.md)**
+> Lively はブラウザを丸ごと動かすため重めです。動作の軽さを優先する場合は Rainmeter 版を使ってください。
+
 [Lively Wallpaper](https://www.rocksdanister.com/lively/)（無料・Microsoft Store から入手可）で動くライブ壁紙です。
 左に PC の状態、右に Claude の使用状況を大きく表示します。
 

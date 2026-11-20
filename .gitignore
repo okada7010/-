@@ -2,3 +2,5 @@ __pycache__/
 moving_desktop/usage.js
 moving_desktop/*.log
 moving_desktop/stop_collector.flag
+moving_desktop/rainmeter/ClaudeMonitor/@Resources/
+moving_desktop/claude.txt

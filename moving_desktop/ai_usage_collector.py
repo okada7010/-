@@ -2,8 +2,9 @@
 """
 AI使用量コレクター（動くデスクトップ Lively 版の付属ツール）
 
-PC上で動かし、次の値を集計して壁紙フォルダに usage.js を書き出します。
-壁紙（index.html）は usage.js を1分ごとに読み込み、パネルに表示します。
+PC上で動かし、次の値を集計して書き出します。
+  ・Lively 版：壁紙フォルダに usage.js（index.html が1分ごとに読み込む）
+  ・Rainmeter 版：このファイルと同じフォルダに claude.txt（スキンが30秒ごとに読み込む）
 
   ・Claude 利用枠（claude.ai と Claude Code 共通）… 5時間枠・週間枠の使用率％とリセット時刻
       Claude Code のログイン情報（~/.claude/.credentials.json）を使って取得します。
@@ -34,6 +35,7 @@ import urllib.request
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STOP_FLAG = os.path.join(BASE_DIR, "stop_collector.flag")
 LOG_FILE = os.path.join(BASE_DIR, "ai_usage_collector.log")
+RAINMETER_FILE = os.path.join(BASE_DIR, "claude.txt")   # Rainmeter スキンが読むファイル
 WALLPAPER_TITLE = "動くデスクトップ"
 
 INTERVAL_SEC = 60          # 集計間隔
@@ -304,6 +306,69 @@ def write_outputs(data, dirs):
             log(f"write failed {d}: {e!r}")
 
 
+# ------------------------------------------------------------
+# Rainmeter 用のテキスト（claude.txt）
+# ------------------------------------------------------------
+def fmt_tok(n):
+    if n >= 1e9:
+        return f"{n / 1e9:.1f}B"
+    if n >= 1e6:
+        return f"{n / 1e6:.1f}M"
+    if n >= 1e3:
+        return f"{n / 1e3:.0f}K"
+    return str(int(n))
+
+
+def fmt_reset(iso):
+    if not iso:
+        return ""
+    try:
+        t = dt.datetime.fromisoformat(str(iso).replace("Z", "+00:00")).astimezone()
+    except ValueError:
+        return ""
+    sec = (t - dt.datetime.now().astimezone()).total_seconds()
+    if sec <= 0:
+        return "まもなくリセット"
+    h, m = int(sec // 3600), int(sec % 3600 // 60)
+    if h >= 24:
+        return f"{t.month}/{t.day} {t:%H:%M} リセット"
+    return f"あと{h}時間{m}分でリセット"
+
+
+def write_rainmeter(data, path):
+    """Rainmeter スキンが WebParser で読む key=value 形式のテキストを書き出す"""
+    cl = data.get("claude", {})
+    lim = {L["key"]: L for L in cl.get("limits", [])}
+    five, week, extra = lim.get("five_hour"), lim.get("seven_day"), lim.get("extra_usage")
+    daily = cl.get("daily", [])
+    tot = [d["in"] + d["out"] for d in daily]
+    mx = max(tot + [1])
+    lines = {
+        "error": cl.get("error", ""),
+        "five": f"{five['pct']:.0f}" if five else "0",
+        "five_reset": fmt_reset(five.get("resets_at")) if five else "",
+        "week": f"{week['pct']:.0f}" if week else "0",
+        "week_reset": fmt_reset(week.get("resets_at")) if week else "",
+        "extra": f"{extra['pct']:.0f}" if extra else "0",
+        "today": fmt_tok(tot[-1]) if tot else "0",
+        "total7": fmt_tok(sum(tot)),
+        "updated": dt.datetime.now().strftime("%m/%d %H:%M"),
+    }
+    for i in range(7):
+        d = daily[i] if i < len(daily) else None
+        lines[f"d{i + 1}"] = f"{(tot[i] / mx * 100):.0f}" if d else "0"
+        lines[f"l{i + 1}"] = d["date"][5:].replace("-", "/") if d else ""
+        lines[f"v{i + 1}"] = fmt_tok(tot[i]) if d and tot[i] else ""
+    body = "".join(f"{k}={v}\n" for k, v in lines.items()) + "end=1\n"
+    try:
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+            f.write(body)
+        os.replace(tmp, path)
+    except OSError as e:
+        log(f"write rainmeter failed: {e!r}")
+
+
 def collect(state):
     now = time.time()
     if now - state.get("limit_at", 0) >= LIMIT_INTERVAL_SEC or "limits" not in state:
@@ -373,13 +438,17 @@ def main():
         print(json.dumps(data, ensure_ascii=False, indent=2))
         print("\n書き出し先:", dirs or "（見つかりません。Lively に壁紙を追加してから実行するか、--out で指定してください）")
         write_outputs(data, dirs + [BASE_DIR] if BASE_DIR not in dirs else dirs)
+        write_rainmeter(data, RAINMETER_FILE)
+        print("Rainmeter 用:", RAINMETER_FILE)
         return
 
     log("start")
     while not os.path.exists(STOP_FLAG):
         try:
             dirs = args.out or find_wallpaper_dirs()
-            write_outputs(collect(state), dirs + ([BASE_DIR] if BASE_DIR not in dirs else []))
+            data = collect(state)
+            write_outputs(data, dirs + ([BASE_DIR] if BASE_DIR not in dirs else []))
+            write_rainmeter(data, RAINMETER_FILE)
         except Exception as e:
             log(f"collect error: {e!r}")
         for _ in range(INTERVAL_SEC):
