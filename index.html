@@ -1,0 +1,1962 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>PIXEL HORIZON</title>
+<meta name="theme-color" content="#0f172a"><!--pwa-->
+<meta name="mobile-web-app-capable" content="yes"><!--pwa-->
+<meta name="apple-mobile-web-app-capable" content="yes"><!--pwa-->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><!--pwa-->
+<meta name="apple-mobile-web-app-title" content="PIXEL HORIZON"><!--pwa-->
+<link rel="manifest" href="manifest.webmanifest"><!--pwa-->
+<link rel="apple-touch-icon" id="lnk-touch" href="apple-touch-icon.png"><!--pwa-->
+<link rel="icon" id="lnk-icon" href="icon-192.png"><!--pwa-->
+<style>
+*{box-sizing:border-box;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;margin:0;padding:0;font-family:'Hiragino Kaku Gothic ProN','Yu Gothic','MS Gothic',monospace;}
+html,body{width:100%;height:100%;background:#090d16;color:#101820;overflow:hidden;display:flex;justify-content:center;align-items:flex-start;}
+button{touch-action:manipulation;}
+html{overscroll-behavior:none;-webkit-text-size-adjust:100%;}
+*{-webkit-tap-highlight-color:transparent;}
+.gbc-shell{width:100%;max-width:400px;background:#1e293b;border:2px solid #475569;border-radius:10px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 28px rgba(0,0,0,0.75);}
+.top-bar{height:36px;background:#0f172a;border-bottom:2px solid #334155;display:flex;justify-content:space-between;align-items:center;padding:0 6px;color:#f8fafc;}
+.loc-info{display:flex;flex-direction:column;overflow:hidden;max-width:42%;}
+.loc-name{font-size:11px;font-weight:bold;color:#fde047;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.loc-sub{font-size:9px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.top-btns{display:flex;gap:3px;}
+.tbtn{background:#1e293b;color:#f8fafc;border:1px solid #94a3b8;border-radius:4px;padding:3px 5px;font-size:10px;font-weight:bold;cursor:pointer;}
+.tbtn:active{background:#475569;}
+.tbtn:disabled{opacity:.35;}
+.screen-wrap{position:relative;width:100%;background:#d8f0c8;display:flex;flex-direction:column;}
+canvas#gameCanvas{display:block;width:100%;height:auto;aspect-ratio:256/160;background:#f8f8f0;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;}
+.pk-win{height:112px;background:#f8f8f0;color:#101820;border-top:3px solid #101820;box-shadow:inset 0 0 0 2px #f8f8f0,inset 0 0 0 4px #101820;padding:6px 8px;display:flex;flex-direction:column;justify-content:space-between;position:relative;}
+#pane-msg{width:100%;height:100%;font-size:12px;font-weight:bold;line-height:1.45;white-space:pre-wrap;display:flex;align-items:flex-start;padding:2px 4px;cursor:pointer;}
+#msg-caret{position:absolute;right:10px;bottom:6px;color:#e82818;font-size:11px;animation:blink .55s infinite alternate;}
+@keyframes blink{from{opacity:1}to{opacity:.15}}
+#pane-cmd{width:100%;height:100%;display:flex;gap:6px;align-items:stretch;}
+.cmd-left{width:37%;border-right:2px solid #101820;padding:4px;font-size:11px;font-weight:bold;display:flex;flex-direction:column;justify-content:space-between;white-space:pre-wrap;}
+.grid2x2{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:4px;}
+.pbtn{background:#fff;color:#101820;border:2px solid #101820;border-radius:4px;font-size:11px;font-weight:bold;padding:2px 6px;text-align:left;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:2px;min-width:0;}
+.pbtn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pbtn.sel,.pbtn:active{background:#fef08a;border-color:#e82818;}
+.pbtn:disabled{opacity:.35;cursor:not-allowed;}
+#pane-moves{width:100%;height:100%;display:flex;flex-direction:column;gap:3px;}
+.mv-top{display:flex;justify-content:space-between;align-items:center;font-size:10px;font-weight:bold;}
+.mv-ret{background:#101820;color:#fff;border:none;border-radius:3px;padding:2px 7px;font-size:9px;font-weight:bold;cursor:pointer;}
+.modal-bg{position:absolute;inset:0;background:rgba(9,13,22,0.86);z-index:30;display:flex;justify-content:center;align-items:center;padding:8px;}
+.modal-bg.title{background:rgba(9,13,22,0.25);align-items:flex-end;}
+.modal-box{width:100%;max-width:340px;max-height:100%;background:#f8f8f0;color:#101820;border:3px solid #101820;box-shadow:inset 0 0 0 2px #f8f8f0,inset 0 0 0 4px #101820;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:5px;overflow:hidden;}
+.modal-hdr{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:bold;border-bottom:2px solid #101820;padding-bottom:3px;}
+#m-desc{font-size:10px;line-height:1.4;white-space:pre-wrap;}
+.modal-list{display:flex;flex-direction:column;gap:4px;overflow-y:auto;max-height:none;min-height:0;flex:0 1 auto;}
+.mbtn{background:#fff;color:#101820;border:2px solid #101820;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:bold;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:6px;cursor:pointer;min-height:32px;}
+.mbtn:active{background:#fef08a;}
+.mbtn:disabled{opacity:.4;cursor:not-allowed;}
+.mbtn img{width:28px;height:28px;image-rendering:pixelated;vertical-align:middle;margin-right:4px;}
+.mbtn .sub{font-size:9px;color:#475569;text-align:right;flex-shrink:0;}
+.code-in{width:100%;font-size:10px;padding:4px;border:2px solid #101820;border-radius:4px;background:#fff;color:#101820;user-select:text;-webkit-user-select:text;}
+.tb{display:inline-block;color:#fff;border-radius:3px;padding:0 4px;font-size:9px;margin-left:3px;line-height:14px;}
+.hpb{display:inline-block;width:64px;height:6px;background:#687078;border:1px solid #101820;vertical-align:middle;position:relative;}
+.hpb i{position:absolute;left:0;top:0;bottom:0;}
+.ctrl-bar{height:108px;background:linear-gradient(180deg,#1e293b,#0f172a);display:flex;justify-content:space-between;align-items:center;padding:4px 18px 6px 18px;container-type:size;}
+:root.gs .ctrl-bar{padding-left:48px;} /* Google Sites 埋め込み時の ⓘ 回避 */
+.dpad{width:96px;height:96px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);touch-action:none;}
+.dp{background:#334155;color:#e2e8f0;border:2px solid #64748b;font-size:14px;font-weight:bold;cursor:pointer;box-shadow:0 3px 0 #020617;touch-action:none;}
+.dp:active,.dp.on{background:#64748b;transform:translateY(2px);box-shadow:0 1px 0 #020617;}
+.dp-up{grid-column:2;grid-row:1;border-radius:6px 6px 0 0;} .dp-down{grid-column:2;grid-row:3;border-radius:0 0 6px 6px;}
+.dp-left{grid-column:1;grid-row:2;border-radius:6px 0 0 6px;} .dp-right{grid-column:3;grid-row:2;border-radius:0 6px 6px 0;}
+.dp-c{grid-column:2;grid-row:2;background:#334155;}
+.money{color:#fde047;font-size:10px;font-weight:bold;align-self:center;margin-right:3px;white-space:nowrap;}
+.mbtn.sel{background:#fef08a;border-color:#e82818;box-shadow:inset 4px 0 0 #e82818;}
+.mbtn .dim{color:#94a3b8;}
+.joy-ring{width:84px;height:84px;background:#090d16;border:3px solid #475569;border-radius:50%;position:relative;touch-action:none;box-shadow:inset 0 4px 8px #000;}
+.joy-knob{width:34px;height:34px;background:radial-gradient(circle at 35% 35%,#94a3b8,#334155);border:2px solid #e2e8f0;border-radius:50%;position:absolute;top:22px;left:22px;pointer-events:none;}
+.ab-wrap{position:relative;width:112px;height:84px;}
+.ab{position:absolute;width:46px;height:46px;border-radius:50%;color:#fff;font-weight:bold;font-size:15px;display:flex;flex-direction:column;justify-content:center;align-items:center;box-shadow:0 3px 0 #020617;cursor:pointer;}
+.ab:active{transform:translateY(2px);box-shadow:0 1px 0 #020617;}
+.btn-a{right:0;top:2px;background:#e11d48;border:2px solid #fda4af;}
+.btn-b{left:0;bottom:2px;background:#475569;border:2px solid #cbd5e1;}
+.hide{display:none!important;}
+.ab{touch-action:none;}
+/* === スマホ・タブレット（縦持ち）：画面いっぱいに表示し、あまった高さを操作パネルに使う === */
+@media (orientation:portrait) and (pointer:coarse), (orientation:portrait) and (max-width:699px){
+  html,body{height:100vh;height:100dvh;align-items:stretch;}
+  .gbc-shell{width:min(100vw, calc((100vh - 330px) * 1.6));width:min(100vw, calc((100dvh - 330px) * 1.6));max-width:none;height:100vh;height:100dvh;border:0;border-radius:0;box-shadow:none;}
+  .top-bar{height:calc(40px + env(safe-area-inset-top,0px));padding:env(safe-area-inset-top,0px) 8px 0;flex-shrink:0;}
+  .loc-name{font-size:12px;} .tbtn{font-size:12px;padding:5px 8px;} .money{font-size:12px;}
+  .screen-wrap{flex-shrink:0;}
+  .pk-win{height:clamp(124px,22vw,180px);}
+  #pane-msg{font-size:clamp(14px,3.4vw,24px);} .cmd-left{font-size:clamp(13px,3vw,21px);} .pbtn{font-size:clamp(13px,3vw,21px);}
+  .modal-box{max-width:min(92%,560px);}
+  .modal-hdr{font-size:clamp(14px,3.2vw,22px);} #m-desc{font-size:clamp(12px,2.6vw,18px);} .mbtn{font-size:clamp(13px,3vw,21px);min-height:clamp(40px,8vw,60px);} .mbtn .sub{font-size:clamp(10px,2.2vw,15px);}
+  .mbtn img{width:clamp(28px,7vw,48px);height:clamp(28px,7vw,48px);}
+  .ctrl-bar{flex:1;height:auto;min-height:120px;padding:8px 20px calc(10px + env(safe-area-inset-bottom,0px));justify-content:space-around;}
+  :root.gs .ctrl-bar{padding-left:52px;}
+  .dpad{width:min(40vw,150px);height:min(40vw,150px);width:min(40vw,84cqh,240px);height:min(40vw,84cqh,240px);}
+  .dp{font-size:20px;}
+  .ab-wrap{width:min(40vw,150px);height:min(32vw,120px);width:min(40vw,84cqh,240px);height:min(32vw,68cqh,190px);}
+  .ab{width:min(18.5vw,70px);height:min(18.5vw,70px);width:min(18.5vw,40cqh,108px);height:min(18.5vw,40cqh,108px);font-size:22px;}
+  .ab span{display:none;}
+}
+/* === スマホ（横持ち）：左に十字キー、中央に画面、右に A・B === */
+@media (orientation:landscape) and (pointer:coarse) and (max-height:560px){
+  html,body{height:100vh;height:100dvh;}
+  .gbc-shell{width:100vw;max-width:none;height:100vh;height:100dvh;border:0;border-radius:0;box-shadow:none;display:grid;grid-template-columns:1fr auto 1fr;grid-template-rows:auto 1fr;}
+  .top-bar{grid-column:1/4;height:30px;padding:0 max(8px,env(safe-area-inset-right,0px)) 0 max(8px,env(safe-area-inset-left,0px));}
+  .loc-info{flex-direction:row;gap:8px;align-items:baseline;max-width:60%;}
+  .screen-wrap{grid-column:2;grid-row:2;width:calc((100vh - 114px) * 1.6);width:calc((100dvh - 114px) * 1.6);align-self:start;}
+  .pk-win{height:84px;padding:4px 8px;}
+  .modal-list{max-height:calc(100vh - 200px);}
+  .ctrl-bar{display:contents;}
+  .dpad{grid-column:1;grid-row:2;align-self:center;justify-self:center;width:min(22vw,150px,calc((100vw - (100vh - 114px) * 1.6) / 2 - 14px));height:min(22vw,150px,calc((100vw - (100vh - 114px) * 1.6) / 2 - 14px));}
+  .dp{font-size:18px;}
+  .ab-wrap{grid-column:3;grid-row:2;align-self:center;justify-self:center;width:min(22vw,150px,calc((100vw - (100vh - 114px) * 1.6) / 2 - 14px));height:auto;aspect-ratio:1.15;}
+  .ab{width:47%;height:auto;aspect-ratio:1;font-size:18px;} .ab span{display:none;}
+  .kb-hint{display:none!important;}
+}
+.kb-hint{display:none;color:#94a3b8;font-size:11px;line-height:1.6;text-align:center;}
+.kb-hint b{color:#f8fafc;}
+/* === PC表示：画面の高さに合わせて大きく表示 === */
+@media (min-width:700px) and (hover:hover) and (pointer:fine){
+  html,body{align-items:center;}
+  .gbc-shell{max-width:min(96vw, calc((100vh - 310px) * 1.6));min-width:400px;border-width:3px;border-radius:14px;}
+  .top-bar{height:44px;padding:0 10px;}
+  .loc-name{font-size:14px;} .loc-sub{font-size:11px;}
+  .tbtn{font-size:13px;padding:5px 9px;}
+  .pk-win{height:132px;padding:8px 12px;}
+  #pane-msg{font-size:17px;line-height:1.5;}
+  #msg-caret{font-size:14px;}
+  .cmd-left{font-size:15px;}
+  .pbtn{font-size:15px;padding:4px 10px;}
+  .pbtn span[style]{font-size:12px!important;}
+  .mv-top{font-size:13px;} .mv-ret{font-size:12px;padding:3px 10px;}
+  .modal-box{max-width:520px;padding:12px;gap:8px;}
+  .modal-hdr{font-size:16px;} #m-desc{font-size:13px;}
+  .modal-list{max-height:none;}
+  .mbtn{font-size:15px;min-height:42px;padding:6px 12px;}
+  .mbtn .sub{font-size:12px;}
+  .mbtn img{width:40px;height:40px;}
+  .code-in{font-size:13px;padding:6px;}
+  .tb{font-size:11px;line-height:16px;}
+  .hpb{width:90px;height:8px;}
+  .ctrl-bar{height:110px;padding:4px 28px 6px 56px;}
+  .kb-hint{display:block;}
+  .dpad{width:104px;height:104px;} .dp{font-size:16px;}
+  .money{font-size:13px;}
+}
+</style>
+<script type="module">
+// クラウド保存（実行環境が Firebase 設定を注入している場合のみ有効。無ければ自動的に無効化）
+let db = null, auth = null, appId = 'pk-hz-rpg', fs = null;
+window.cloudReady = false;
+try {
+  if (typeof __firebase_config !== 'undefined') {
+    const [{ initializeApp }, A, F] = await Promise.all([
+      import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"),
+      import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"),
+      import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js")
+    ]);
+    const app = initializeApp(JSON.parse(__firebase_config));
+    db = F.getFirestore(app); auth = A.getAuth(app); fs = {A, F};
+    appId = typeof __app_id !== 'undefined' ? __app_id : 'pk-hz-rpg';
+    window.cloudReady = true;
+  }
+} catch (e) { console.warn("Cloud save disabled"); }
+window.dispatchEvent(new Event('cloud-ready'));
+async function uid() {
+  if (!auth) return null;
+  if (auth.currentUser) return auth.currentUser.uid;
+  try {
+    if (typeof __initial_auth_token !== 'undefined') await fs.A.signInWithCustomToken(auth, __initial_auth_token);
+    else await fs.A.signInAnonymously(auth);
+    return auth.currentUser.uid;
+  } catch (e) { return null; }
+}
+window.safeSaveCloud = async (data) => {
+  try { const u = await uid(); if (!u) return false;
+    await fs.F.setDoc(fs.F.doc(db, 'artifacts', appId, 'users', u, 'saveData'), { raw: data }); return true;
+  } catch (e) { return false; }
+};
+window.safeLoadCloud = async () => {
+  try { const u = await uid(); if (!u) return null;
+    const s = await fs.F.getDoc(fs.F.doc(db, 'artifacts', appId, 'users', u, 'saveData'));
+    if (s.exists()) return s.data().raw;
+  } catch (e) {}
+  return null;
+};
+</script>
+</head>
+<body>
+<div class="gbc-shell">
+  <div class="top-bar">
+    <div class="loc-info">
+      <div id="loc-name" class="loc-name">📍 PIXEL HORIZON</div>
+      <div id="loc-sub" class="loc-sub">モンスター育成RPG</div>
+    </div>
+    <div class="top-btns">
+      <span class="money" id="money"></span>
+      <button type="button" class="tbtn" id="btn-menu">☰メニュー</button>
+      <button type="button" class="tbtn" id="btn-snd">🔊音</button>
+    </div>
+  </div>
+
+  <div class="screen-wrap">
+    <canvas id="gameCanvas" width="256" height="160"></canvas>
+
+    <div class="pk-win">
+      <div id="pane-msg"><span id="msg-txt"></span><span id="msg-caret">▼</span></div>
+      <div id="pane-cmd" class="hide">
+        <div class="cmd-left"><span id="cmd-who">どうする？</span><span id="cmd-sub" style="font-size:9px;color:#475569"></span></div>
+        <div class="grid2x2">
+          <button type="button" class="pbtn" id="c0"><span>⚔️たたかう</span></button>
+          <button type="button" class="pbtn" id="c1"><span>🐾なかま</span></button>
+          <button type="button" class="pbtn" id="c2"><span>🎒どうぐ</span></button>
+          <button type="button" class="pbtn" id="c3"><span>💨にげる</span></button>
+        </div>
+      </div>
+      <div id="pane-moves" class="hide">
+        <div class="mv-top"><span id="mv-hint">わざを えらぶ</span><button type="button" class="mv-ret" id="mv-back">↩もどる</button></div>
+        <div class="grid2x2">
+          <button type="button" class="pbtn" id="m0"></button>
+          <button type="button" class="pbtn" id="m1"></button>
+          <button type="button" class="pbtn" id="m2"></button>
+          <button type="button" class="pbtn" id="m3"></button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal-ui" class="modal-bg">
+      <div class="modal-box">
+        <div class="modal-hdr"><span id="m-title">PIXEL HORIZON</span><button type="button" class="tbtn hide" id="m-close">✕とじる</button></div>
+        <div id="m-desc"></div>
+        <div id="m-extra" class="hide"></div>
+        <div id="m-list" class="modal-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ctrl-bar">
+    <div class="dpad" id="dpad">
+      <button type="button" class="dp dp-up" data-dir="up">▲</button>
+      <button type="button" class="dp dp-left" data-dir="left">◀</button>
+      <span class="dp-c"></span>
+      <button type="button" class="dp dp-right" data-dir="right">▶</button>
+      <button type="button" class="dp dp-down" data-dir="down">▼</button>
+    </div>
+    <div class="kb-hint">移動・選択 <b>WASD / 矢印キー</b><br>決定 <b>Enter / Z</b>　もどる・メニュー <b>Space / X</b></div>
+    <div class="ab-wrap">
+      <button type="button" class="ab btn-b" id="btn-b">B<span style="font-size:8px">SPACE</span></button>
+      <button type="button" class="ab btn-a" id="btn-a">A<span style="font-size:8px">ENTER</span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+// === 16-COLOR GBC AUTHENTIC PALETTE ===
+const PAL = {
+  '.': null,
+  '1': '#101820', // Black Outline
+  '2': '#f8f8f0', // Pure White / Highlight
+  '3': '#e82818', // Crimson Red / Fire
+  '4': '#f88818', // Warm Orange
+  '5': '#f8e030', // Bright Yellow / Lightning
+  '6': '#38b838', // Leaf Green
+  '7': '#186828', // Forest Dark Green
+  '8': '#3090f8', // Ocean Blue
+  '9': '#1840a8', // Deep Navy Blue
+  'A': '#a858d8', // Royal Purple
+  'B': '#f878a8', // Nurse Pink
+  'C': '#b87030', // Earth Brown
+  'D': '#c0c8d0', // Light Stone Gray
+  'E': '#687078', // Dark Slate Gray
+  'F': '#78d8f8'  // Ice / Crystal Cyan
+};
+
+// === 16x16 MONSTER FRONT & BACK PIXEL ART MATRICES (Rendered at 64x64px) ===
+const MON_SPRITES = {
+  // 1: イグニザード (Fire Lizard)
+  1: {
+    front: [
+      "....111..111....","...1333113331...","..134433334431..","..132133332131..","..131133331131..","...1334444331...",
+      "..113322223311..",".13313555531331.",".12113544531121.","..1..135531..15.","....13355331.545","...1331111331434",
+      "...1331..1331131","..13321..123311.","..12121..12121..","...111....111..."
+    ],
+    back: [
+      "....111..111....","...1333113331...","..134433334431..","..133333333331..","...1334444331...","..113443344311..",
+      ".13313333331331.",".11113344331115.","....13333331.545","...1333443331434","..13333333331131","..1333111133311.",
+      "..1331....1331..","..1111....1111..","................","................"
+    ]
+  },
+  // 2: アクアトス (Water Turtle)
+  2: {
+    front: [
+      "....11111111....","...188FFFF881...","..188218821881..","..188118811881..","..1888FFFF8881..","..119988889911..",
+      ".1CC18555581CC1.","1C441854458144C1","1C4C18555581C4C1",".1CC18888881CC1F","..118811118811FF","..18881..188818F",
+      "..18821..128811.","..12121..12121..","...111....111...","................"
+    ],
+    back: [
+      "....11111111....","...188FFFF881...","..188888888881..","..199111111991..",".1CC444CC444CC1.","1C44C11CC11C44C1",
+      "1CC44CCCCCC44CC1","1C44C11CC11C44C1",".1CC444CC444CC1F","..1CCCCCCCCCC1FF","..1888111188818F","..1881....18811.",
+      "..111......111..","................","................","................"
+    ]
+  },
+  // 3: リーファル (Grass Beast)
+  3: {
+    front: [
+      ".....111111.....","...1166336611...","..166763367661..","..177666666771..",".11117766771111.","166FF111111FF661",
+      "16236FF66FF63261","1611666FF6661161",".16667766776661.",".16776666667761.",".16661111116661.",".1661.1..1.1661.",
+      ".1621......1261.","..111......111..","................","................"
+    ],
+    back: [
+      ".....111111.....","...1166336611...","..16633B33B661..","..167663366761..",".16677666677661.","1677666776667761",
+      "1666111111116661","1FF6677FF7766FF1",".1FF66666666FF1.","..166776677661..","..166611116661..","..1661....1661..",
+      "...111....111...","................","................","................"
+    ]
+  },
+  // 4: サンダリス (Electric Mouse)
+  4: {
+    front: [
+      ".111........111.",".1151......1511.","..1551....1551..","...1551111551...","..155555555551..","..152155552151..",
+      "..131155551131..","..133551155331.1","...1555555551.15","..15545555455154","..15555555555141","..1554455445515.",
+      "...15511115511..","...1551..1551...","...1441..1441...","....11....11...."
+    ],
+    back: [
+      ".111........111.",".1151......1511.","..1551....1551..","...1551111551...","..155555555551..","..155555555551..",
+      "...1554444551..1","..15555555555115","..15554444555154","..15555555555141","..1554455445515.","...15511115511..",
+      "...1551..1551...","...1551..1551...","...1441..1441...","....11....11...."
+    ]
+  },
+  // === NEW EVOLVED & EXTRA MONSTERS ===
+  5: { // グレンザード (Evolved Fire)
+    front: ["..111......111..","..1331....1331..",".13333111133331.",".13321333312331.","1333113333113331","13344444444331..","13332222223331..",".1331355553131..",".1331354453131..",".1311355553111..","..1..133331..1..","....13355331.1..","...1331111331...","..1331....1331..","..111......111..","................"],
+    back:  ["..111......111..","..1331....1331..",".13333111133331.",".13333333333331.","1333333333333331","13344444444331..","13333333333331..",".1333333333331..",".1333344443331..",".1333355553331..","..133333333331..","....13355331.1..","...1331111331...","..1331....1331..","..111......111..","................"]
+  },
+  6: { // ハイドロトス (Evolved Water)
+    front: ["..111111111111..",".18888888888881.",".18821888812881.","1888118888118881","188888FFFF888881","1119988888899111","1CC1185555811CC1","1C4C18544581C4C1","1C4C18555581C4C1","1CC1188888811CC1","111.18811881.111","....18811881....","...1881..1881...","...121....121...","...111....111...","................"],
+    back:  ["..111111111111..",".18888888888881.",".18888888888881.","1888888888888881","188888FFFF888881","1119988888899111","1CC11CCCCCC11CC1","1C4C1C4444C1C4C1","1C4C1C4444C1C4C1","1CC11CCCCCC11CC1","111.18811881.111","....18811881....","...1881..1881...","...121....121...","...111....111...","................"]
+  },
+  7: { // フォレファル (Evolved Grass)
+    front: ["....11111111....","...1663333661...","..167633336761..","..177666666771..",".11117766771111.","166FF111111FF661","16236FF66FF63261","1611666FF6661161","1666677667766661",".16776666667761.",".16661111116661.",".1661.1..1.1661.",".1621......1261.","..111......111..","................","................"],
+    back:  ["....11111111....","...1663333661...","..167633336761..","..177666666771..",".11117766771111.","166FF111111FF661","16666FF66FF66661","1666666FF6666661","1666677667766661",".16776666667761.",".16661111116661.",".1661.1..1.1661.",".1661......1661.","..111......111..","................","................"]
+  },
+  8: { // ボルタリス (Evolved Electric)
+    front: [".111........111.",".1151..111.1511.","..1551.1511551..","...1551151551...","..155555555551..","..152155552151..","..131155551131..","..133551155331.1","...1555555551.15","..15545555455154","..15555555555141","..1554455445515.","...15511115511..","...1551..1551...","...1441..1441...","....11....11...."],
+    back:  [".111........111.",".1151..111.1511.","..1551.1511551..","...1551151551...","..155555555551..","..155555555551..","...1554444551..1","..15555555555115","..15554444555154","..15555555555141","..1554455445515.","...15511115511..","...1551..1551...","...1551..1551...","...1441..1441...","....11....11...."]
+  },
+  9: { // ラトラン (Normal)
+    front: ["................","................","....111..111....","...1CC1111CC1...","...1C21CC12C1...","...1C11CC11C1...","....1CCCCCC1....","...1CC3CC3CC1...","...1C44CC44C1...","...1CCCCCCCC1...","...1C444444C1...","...1.1CCCC1.1...","....11....11....","................","................","................"],
+    back:  ["................","................","....111..111....","...1CC1111CC1...","...1CCCCCCC1...","...1CCCCCCC1...","....1CCCCCC1....","...1CCCCCCCC1...","...1CCCCCCCC1...","...1CCCCCCCC1...","...1C444444C1...","...1.1CCCC1.1...","....11....11....","................","................","................"]
+  },
+  10: { // ラトロード (Evolved Normal)
+    front: ["................","..111......111..",".1CC11....11CC1.","1CC2111111112CC1","1CC11CCCCCC11CC1","1CC1CC3CC3CC1CC1",".111C44CC44C111.",".1.1CCCCCCCC1.1.",".111C444444C111.","..1CCCCCCCCCC1..","..1C44444444C1..","..1.1CCCCCC1.1..","...11......11...","................","................","................"],
+    back:  ["................","..111......111..",".1CC11....11CC1.","1CC1111111111CC1","1CC11CCCCCC11CC1","1CC1CCCCCCCC1CC1",".111CCCCCCCC111.",".1.1CCCCCCCC1.1.",".111C444444C111.","..1CCCCCCCCCC1..","..1C44444444C1..","..1.1CCCCCC1.1..","...11......11...","................","................","................"]
+  },
+  11: { // フェザック (Flying)
+    front: ["................","................","......111.......",".....1CCC1......","....1C333C1.....","...121333121....","...111CC3111....","...1CCCCCCC1....","...1CC444CC1....","...1CCCCCCC1....","....11...11.....","......1.1.......","................","................","................","................"],
+    back:  ["................","................","......111.......",".....1CCC1......","....1CCCCC1.....","...1CCCCCCC1....","...1CCCCCCC1....","...1CCCCCCC1....","...1CC444CC1....","...1CCCCCCC1....","....11...11.....","......1.1.......","................","................","................","................"]
+  },
+  12: { // フェザード (Evolved Flying)
+    front: ["................","......111.......",".....1C3C1......","....1C333C1.....","...1C33333C1....","..12133333121...","..111C333C111...","..1CCCCCCCCC1...","..1CC44444CC1...","..1CCCCCCCCC1...","...11.....11....",".....1...1......","................","................","................","................"],
+    back:  ["................","......111.......",".....1CCC1......","....1CCCCC1.....","...1CCCCCCC1....","..1CCCCCCCCC1...","..1CCCCCCCCC1...","..1CCCCCCCCC1...","..1CC44444CC1...","..1CCCCCCCCC1...","...11.....11....",".....1...1......","................","................","................","................"]
+  }
+};
+
+// === OVERWORLD TILE & CHARACTER PIXEL MATRICES ===
+const TILE_MATS = {
+  grass: [
+    "6666666666666666","6666666666666666","6666666666666666","6666666666666666",
+    "6666666666666666","6666666666666666","6666666666666666","6666666666666666",
+    "6666666666666666","6666666666666666","6666666666666666","6666666666666666",
+    "6666666666666666","6666666666666666","6666666666666666","6666666666666666"
+  ],
+  tallgrass: [
+    "6666666666666666","6611666666116666","6166166661661666","6166166661661666",
+    "6166166661661666","6611666666116666","6666666666666666","6666661166666666",
+    "6666616616666666","6666616616666666","6666616616666666","6666661166666666",
+    "6666666666666666","6666666666666666","6666666666666666","6666666666666666"
+  ],
+  flower: [
+    "6666666666666666","6666666666666666","6666662266666666","6666223322666666",
+    "6666223322666666","6666662266666666","6666666666666666","6666666666666666",
+    "6666666666666666","6622666666226666","6233266662332666","6622666666226666",
+    "6666666666666666","6666666666666666","6666666666666666","6666666666666666"
+  ],
+  water: [
+    "8888888888888888","8888888F88888888","888888F8F8888888","8888888F88888888",
+    "8888888888888888","8888888888888888","8888888888888888","88F8888888888888",
+    "8F8F888888888888","88F8888888888888","8888888888888888","8888888888888888",
+    "8888888888888888","88888888888F8888","8888888888F8F888","88888888888F8888"
+  ],
+  path: [
+    "DDDDDDDDDDDDDDDD","DDDDDDDDDDDDDDDD","DDDDDDDDDDDDDDDD","DDDDDDDDDDDDDDDD",
+    "DDDDDDDDDDDDDDDD","DDDDDDDDDDDDDDDD","DDDDDDDDDDDDDDDD","DDDDDDDDDDDDDDDD",
+    "DDDDDDDDDDDDDDDD","DDDDDDDDDDDDDDDD","DDDDDDDDDDDDDDDD","DDDDDDDDDDDDDDDD",
+    "DDDDDDDDDDDDDDDD","DDDDDDDDDDDDDDDD","DDDDDDDDDDDDDDDD","DDDDDDDDDDDDDDDD"
+  ],
+  tree: [
+    "6666661111666666","6666117777116666","6661776666771666","6617766666677166",
+    "6177166666617716","6611777777771166","6666111111116666","666661CCCC166666",
+    "666661C11C166666","66661CC11CC16666","6666111111116666","6666666666666666"
+  ],
+  roof: [
+    "1111111111111111","3333333133333331","3444443134444431","3333333133333331",
+    "1111111111111111","3331333333313333","4431344444313444","3331333333313333",
+    "1111111111111111","3333333133333331","3444443134444431","3333333133333331",
+    "1111111111111111","EEEEEEEEEEEEEEEE","DDDDDDDDDDDDDDDD","1111111111111111"
+  ],
+  wall: [
+    "2222222122222221","2DDDDD212DDDDD21","2222222122222221","1111111111111111",
+    "2221222222212222","DD21211111212DDD","22212188F1212222","1111118FF1111111",
+    "2222211111222221","2DDDDD212DDDDD21","2222222122222221","1111111111111111",
+    "2221222222212222","DD212DDDDD212DDD","EEEEEEEEEEEEEEEE","1111111111111111"
+  ],
+  pc_door: [
+    "1111111111111111","1333333333333331","1322233222333331","1321233211333331",
+    "1322233211333331","1321133222333331","1111111111111111","1221111111111221",
+    "122188FFFF881221","122188FFFF881221","1221881111881221","122188FFFF881221",
+    "122188FFFF881221","122188FFFF881221","122188FFFF881221","1111111111111111"
+  ],
+  sign: [
+    "6666666666666666","6611111111111166","61CCCCCCCCCCCC16","61C2222222222C16",
+    "61CCCCCCCCCCCC16","61C2222222222C16","61CCCCCCCCCCCC16","6111111111111116",
+    "6666661CC1666666","6666661CC1666666","6666661CC1666666","6666611CC1166666",
+    "6666661111666666","6666666666666666","6666666666666666","6666666666666666"
+  ],
+  player: [
+    "....11111111....","...1333333331...","..133332233331..","..111111111111..","..114214412411..","..114114411411..",
+    "...1444444441...","..113322223311..",".13333222233331.",".14413333331441.","..11.188881.11..",".....188881.....",
+    "....18811881....","....111..111....","................","................"
+  ],
+  nurse: [
+    "....11111111....","...1222332221...","..1BBBBBBBBBB1..","..1BB42144124B1.","..1BB41144114B1.","...1B4444444B1..",
+    "..1122BBBB2211..",".1BBBB2222BBBB1.",".1441BBBBBB1441.","..11.122221.11..",".....122221.....","....1BB11BB1....",
+    "....111..111....","................","................","................"
+  ],
+  npc: [
+    "....11111111....","...1999999991...","..199999999991..","..114214412411..","..114114411411..","...1444444441...",
+    "..119955559911..",".19999555599991.",".14419999991441.","..11.1EEEE1.11..",".....1EEEE1.....","....1EE11EE1....",
+    "....111..111....","................","................","................"
+  ]
+};
+
+
+// 追加パレット（地形用）
+PAL['S'] = '#f0d898'; PAL['N'] = '#eef6fc'; PAL['Q'] = '#b8b0c0'; PAL['U'] = '#a89880'; PAL['V'] = '#807060';
+
+// 追加モンスター：左半分(8px)を描いて左右反転で16pxに。背面は顔の線を消して自動生成。
+const HALF = {
+  13:["........","........","........",".....111","...11DDD","..1DDEDD","..1DD21D",".1DDD11D",".1DEDDDD",".1DDDD11",".1DDDDDD","..1EDDDD","..11DDEE","...11111","........","........"],
+  14:["....11..","...1DD1.","...1DE11","..1DDDDD","..1DD21D","..1DDDDD",".11DE111","1DD1DDDD","1DE1DEDD","1DD1DDDD",".11.1DDD","....1DE1","...1DDD1","...1EEE1","...111..","........"],
+  15:["........","........",".....111","...11222","..12222F","..1F2222",".1222122",".12B2122",".1222222",".1F22211","..122222","..1F2222","...1122F",".....111","........","........"],
+  16:["..11....",".1F81...",".1F881..","..1F8111","..1F8888",".1F88218",".1F88118","1F888888","1F8F2222",".1F82222","..1F8888","..18811.",".1881...",".1221...",".111....","........"],
+  17:["........",".....111","...11FFF","..1FFFFF",".1FF2FFF",".1FFF21F",".1FFF11F",".1FFFFFF","..111111","...181F1","...181F1","..181.1F","..181.1F",".181..18",".11...11","........"],
+  18:["...1..1.","..151151","..155555",".1111111","1FFFFFFF","1FFF2FFF","1FFF11FF","1FFFFFFF",".1888888",".1111111","..18.18.","..18.18.",".18..18.",".18...18",".11...11","........"],
+  19:["........","........","..1.....","...1....","...11111","..155555",".1552155",".1551155",".1555555","..111111",".1555555",".1E55E55","..155555","...11111","...1.1.1","........"],
+  20:[".1......",".151....","..151...","...11111","..1EEEEE",".1E21EEE",".1E11EEE","11555555","15E555E5","15555555","15E555E5",".1555555","..111111","..1E1.1E",".1E1..1E",".11....."],
+  21:["........","......1B",".....1B5","......16","....1116","...1CCCC","..1CCCCC","..1C21CC","..1C11CC",".1CCCCCB",".1CC4444",".1CC4444","..1CCCCC","..1E11CC","..11.111","........"],
+  22:["...1BB1.","..1B55B1","...1BB16","....1166","...11CCC","..1CCCCC",".1CC21CC",".1CC11CC","1CCCCCCB","1CC44444","1C444444","1CC44444",".1CCCCCC","1EE1CCCC","1111.111","........"],
+  23:["........","........","1.......","131...11","1331.133","13331333","13333213","13333113",".1333333",".1314333","..1.1444",".....144","......11","........","........","........"],
+  24:[".......4","......45","1....145","131..133","13311333","13333333","133A3213","13333113","13333333",".1333444",".1.13444","....1444",".....144","......11","........","........"],
+  25:["........","........",".....111","....1999","...19999","...19921","...19995","..199222",".1992222",".1992222","..199222","...19222","....1999","....1441","....1111","........"],
+  26:[".....151","....1555","...11111","..199999",".1999999",".1992199",".1999955","1999F222","19FF2222","19F22222","19F22222","19922222",".1992222","..111111","..14441.","..11111."],
+  27:[".......1","......1F",".....1FF","....1F8F","...1FF8F","..1FF21F","..1F8F11",".1FF8FFF","1DD1FF8F","1DE1F8FF","1DD1FFFF",".11.1F8F","...1DDDD","..1DDE1D","..1EEE1.","..1111.."],
+  28:["1.......","151....1","15511.1A","155551AA",".1555A21","..155AAA","...1AAAA","..1AAAA3","..1AAAAA",".15AAAAA","155.1AAA","15...1AA","1.....1A","......15",".......1","........"]
+};
+Object.assign(HALF, {
+  29:["..1.....", ".131...1", ".1331.13", "..133133", "..133333", "1.134213", "131.3333", "13313344", "13331344", "13333355", ".1333555", "..133555", "..133355", "..13311.", ".1331...", ".111...."],
+  30:["........", "....1111", "...18888", "..188F88", "..188218", "..188888", ".1111FFF", "1CC1CCCC", "1C41C44C", "1C41C4C4", "1CC1CCCC", ".1118888", "..188558", "..18811.", ".18881..", ".1111..."],
+  31:["...1B1..", "..1B5B1.", "...1B1B5", "....1166", "..116666", ".1667666", ".1662166", ".1661166", "16666666", "1676FF66", "166FFFF6", ".1666666", ".1677667", ".166116.", ".121.12.", ".111.11."],
+  32:["........", "........", "........", "....1111", "..11CCCC", ".1CCCCCC", ".1CC1CCC", ".1CCCCCB", "12CCCCCC", "121CCCC4", ".1CCCC44", ".1CCCC44", "..1CCCCC", "..11CC11", "...11...", "........"],
+  33:["......1D", ".....1DE", "....1DDE", "...11111", "..1CCCCC", ".1CC21CC", ".1CC11CC", "11CCCCCB", "1D1CCCCC", "1DD1CC44", "1D1CC444", ".1CCC444", ".1CCCC44", "..1CCCCC", "..11C111", "...11..."],
+  34:["........", "........", "....1111", "...1SSSS", "...1S21S", "...1SSSS", "....1SS3", "..111SSS", ".1SSS1SS", "1SSCSS1S", "1SSSSSS1", "1CSSSSCS", ".1SSSSSS", "..1SCSSC", "...11111", "........"],
+  35:["...1111.", "..1SSSS1", ".1SS4SSS", "1SS4SSSS", "1S4SS21S", "1S4SSSSS", "1SS4SSS3", ".1SS4SSS", "..1SSSSS", "...1SSCS", "..11SSSS", ".1SS1SCS", "1SSSS1SS", "1SCSSSSS", ".1SSSSCS", "..111111"],
+  36:["........", "..1.....", ".1A1....", ".1AA1111", "..1AAAAA", ".1AAAAAA", ".1AA51AA", ".1AA55AA", "1AAAAAAA", "1AEAAAEE", ".1AAAAAA", "..1AAAAA", "..1A1A1A", "...1.1.1", "........", "........"],
+  37:["1.......", "1A1....1", "1AA1..1A", ".1AA11AA", ".1AAAAAA", "1AAAAAAA", "1AA151AA", "1AAA55AA", "1AAAAAAA", "1AE3E3E3", "1AAEEEEE", ".1AAAAAA", ".1A1AAAA", "..1.1AA1", ".....11.", "........"],
+  38:["........", "........", "..111111", ".1222222", "1222D222", "12222222", "1D221111", "12221444", "12221414", ".1221444", ".12D1444", "..122111", "..1D2222", "...11221", "....1E1.", "....111."],
+  39:["........", "...1....", "....1...", "....1111", "...16666", "..166666", "..166216", "..166116", "..166666", "...1666B", "..115666", ".1666666", ".1676676", ".1666666", "..111111", "........"],
+  40:["........", "..1....1", ".1B1..1.", "1BBB1.11", "1B5BB11C", "1BBBBB1C", "1BB5BB21", ".1BBBB1C", "..1111CC", ".1AAA1CC", "1AA5AA1C", "1AAAAA1C", ".1AAA11C", "..111.11", "........", "........"],
+  41:["........", "........", "....1111", "...14444", "..144444", "1.144214", "14144114", "14444444", "14144222", "1.144222", "..144444", "...14444", "....1441", "...141.1", "...11...", "........"],
+  42:["...1....", "..131..1", "..1331.1", ".1.13311", ".5.19999", "15198888", "1.188218", ".1188118", "11888888", "13188FFF", "1331888F", ".1318888", "..118899", "...18891", "..1331..", "..111..."],
+  43:[".111....", "15551...", "151.1111", "1551DDDD", ".11DDDDD", ".1DDEDDD", "1DDD1111", "1DDD1EEE", "1DED1E5E", "1DDD1EEE", ".1DDD1EE", ".1DEDD11", "..1DDDDD", "...11DD1", "....1E1.", "....111."],
+  44:["..11....", ".1221...", ".12F1...", ".12F1...", ".12F1111", "..122222", ".1222222", ".1222322", ".122222B", "..122222", ".1222222", "12222222", "12F22222", ".1222222", "..112211", "....11.."],
+  45:[".11.....", "1F81....", "1F881...", ".1F81.11", ".1F81122", "..1F8222", ".1F82222", "1F822312", "1F82222B", ".1F82222", "1F822222", "1F82F222", "1F822222", ".1F82222", "..112211", "....11.."],
+  46:["........", "....1111", "..113333", ".1332333", "13322333", "13333323", "13333333", ".1111111", "..1SSSSS", "..1S21SS", "..1S11SS", "..1SSSSB", "..1SSSSS", "...1SSSS", "...11111", "........"],
+  47:["...11111", ".11AAAAA", "1AA2AAAA", "1A22AA2A", "1AAAAAAA", "1AAA2AAA", ".1111111", "..1SSSSS", ".11S21SS", "1S1S11SS", "1S1SSSS3", ".11SSSSS", "..1SSCSS", "..1SSSSS", "..11S111", "...11..."],
+  48:["........", "..11....", ".1CC1...", ".1C41111", "..1CCCCC", ".1CCCCCC", ".1CC21CC", ".1CC11SS", ".1CCCSS1", "..1CCSSS", ".1CCCCCC", "1CCCCSSS", "1CCCCSSS", ".1CCCCCC", "..11C111", "...11..."],
+  49:[".11.....", "1CC1.111", "1C411CCC", ".1CCCCCC", ".1CC21CC", ".1CC11SS", "11CCCSS1", "1C1CCSSS", "1CC1CCCC", "1CCC1CSS", "21C1CSSS", "2.1CCSSS", "..1CCCCC", "..1CC1CC", ".1CCC11C", ".1111.11"],
+  50:["........", "1......1", "1E1...1E", "1EE1.1EE", "1EEE1EEE", "1EEEEEEE", "1EAEE31E", "1EAEEEE5", ".1EAEEE5", ".1EEAEEE", "..1EEAAE", "..1EEEAA", "...1EEEE", "...1E1E1", "....5..5", "........"]
+});
+const mirrorHalf = (h) => h.map(r => { r = (r + '........').slice(0, 8); return r + r.split('').reverse().join(''); });
+const backOf = (f) => f.map(r => {
+  const a = r.split(''), L = a.findIndex(c => c !== '.'), R = 15 - [...a].reverse().findIndex(c => c !== '.');
+  if (L < 0) return r;
+  const o = a.slice(); let last = null;
+  for (let i = L + 1; i < R; i++) {
+    const eyeWhite = a[i] === '2' && (a[i + 1] === '1' || a[i - 1] === '1') && i - 1 > L && i + 1 < R;
+    if ((a[i] === '1' && a[i + 1] !== '.') || eyeWhite) { if (last) o[i] = last; }
+    else if (a[i] !== '.' && a[i] !== '1' && a[i] !== '2') last = a[i];
+  }
+  return o.join('');
+});
+Object.keys(HALF).forEach(id => { const f = mirrorHalf(HALF[id]); MON_SPRITES[id] = {front:f, back:backOf(f)}; });
+
+// 追加タイル・人物
+(() => {
+  const p = TILE_MATS.player;
+  TILE_MATS.player_up = p.map((r, i) => i === 4 || i === 5 ? "..1CCCCCCCCCC1.." : i === 6 ? "...1CCCCCCCC1..." : r);
+  TILE_MATS.player_right = p.map((r, i) => i === 4 ? "..1CC444442141.." : i === 5 ? "..1CC444441141.." : i === 6 ? "...1C44444441..." : r);
+  const recol = (m, map) => m.map(r => r.split('').map(c => map[c] || c).join(''));
+  const n = TILE_MATS.npc;
+  const NPCV = {npc:{}, npc_red:{'9':'3'}, npc_purple:{'9':'A','5':'2'}, npc_green:{'9':'7','5':'4'}, npc_blue:{'9':'8','5':'F'}, npc_yellow:{'9':'5','5':'3'}, npc_white:{'9':'2','5':'D','E':'C'}, npc_dark:{'9':'E','5':'3','4':'D'}};
+  const nUp = n.map((r, i) => i === 3 || i === 4 ? "..199999999991.." : i === 5 ? "...1999999991..." : r);
+  const nRight = n.map((r, i) => i === 3 ? "..199444442141.." : i === 4 ? "..199444441141.." : i === 5 ? "...1944444441..." : r);
+  Object.keys(NPCV).forEach(k => {
+    if (k !== 'npc') TILE_MATS[k] = recol(n, NPCV[k]);
+    TILE_MATS[k + '_up'] = recol(nUp, NPCV[k]); TILE_MATS[k + '_right'] = recol(nRight, NPCV[k]);
+  });
+  TILE_MATS.sign = recol(TILE_MATS.sign, {'6':'.'});
+  TILE_MATS.roof_blue = recol(TILE_MATS.roof, {'3':'8','4':'F'});
+  TILE_MATS.roof_gym = recol(TILE_MATS.roof, {'3':'E','4':'5'});
+  const fill = (c, dot, every) => Array.from({length:16}, (_, r) => Array.from({length:16}, (_, k) => ((r * 7 + k * 3) % every === 0 ? dot : c)).join(''));
+  TILE_MATS.sand = fill('S', 'C', 23);
+  TILE_MATS.snow = fill('N', 'F', 29);
+  TILE_MATS.peakg = fill('Q', 'E', 19);
+  TILE_MATS.cavef = fill('U', 'V', 17);
+  TILE_MATS.tree_beach = recol(TILE_MATS.tree, {'6':'S'});
+  TILE_MATS.tree_snow = recol(TILE_MATS.tree, {'6':'N','7':'F'});
+  TILE_MATS.flower_beach = recol(TILE_MATS.flower, {'6':'S'});
+  TILE_MATS.flower_snow = recol(TILE_MATS.flower, {'6':'N','3':'8'});
+  TILE_MATS.tallgrass_snow = recol(TILE_MATS.tallgrass, {'6':'F','1':'9'});
+  TILE_MATS.rock = ["................","....11111111....","...1DDDDDDDD1...","..1DDDDDDDEDD1..",".1DDDDDDDDDEDD1.",".1DDDEDDDDDDDE1.","1DDDDDEDDDDDDDE1","1DDDDDDDDDDDDEE1","1DDDEDDDDDDDEDE1","1DDDDDDDDDDDEEE1",".1EDDDDDDDDEEE1.",".1EEEDDDDEEEEE1.","..11EEEEEEEE11..","....11111111....","................","................"];
+})();
+const THEME = {
+  grass:{g:'t_grass', T:'t_tree', G:'t_tallgrass', F:'t_flower', bg:'#e8f0d8'},
+  beach:{g:'t_sand', T:'t_tree_beach', G:'t_tallgrass', F:'t_flower_beach', bg:'#f8ecc8'},
+  snow:{g:'t_snow', T:'t_tree_snow', G:'t_tallgrass_snow', F:'t_flower_snow', bg:'#e4f0fa'},
+  peak:{g:'t_peakg', T:'t_rock', G:'t_tallgrass', F:'t_flower', bg:'#e4dcec'},
+  cave:{g:'t_cavef', T:'t_rock', G:'t_tallgrass', F:'t_flower', bg:'#d8d0c8'}
+};
+const FLOORS = { // [床1, 床2, じゅうたん, じゅうたん縁]
+  center:['#f8f8f0','#e8e8d8','#f8c8d8','#f878a8'], lab:['#eef2f6','#dde4ec','#c8d8f0','#3090f8'],
+  rock:['#e4d4b4','#d4c4a4','#c8a878','#b87030'], water:['#dcecf8','#cce0f0','#a8d0f0','#3090f8'],
+  elec:['#f8f4c4','#f0e8ac','#f8e030','#f88818'], grass:['#d4ecbc','#c4e0ac','#a0d088','#38b838'], ice:['#ecf8fc','#dcf0f8','#b8e4f4','#78d8f8']
+};
+
+// === わざ・タイプ相性・モンスター ===
+const MOVES = {
+  ember:{n:'ヒートスパーク',t:'ほのお',p:40,ac:100}, flame:{n:'フレアバースト',t:'ほのお',p:70,ac:90}, inferno:{n:'プロミネンス',t:'ほのお',p:95,ac:85},
+  water:{n:'アクアショット',t:'みず',p:40,ac:100},   bubble:{n:'タイダルスピン',t:'みず',p:65,ac:95},  hydro:{n:'アビスストリーム',t:'みず',p:95,ac:85},
+  vine:{n:'リーフウィップ',t:'くさ',p:40,ac:100},    leaf:{n:'グリーンブレード',t:'くさ',p:65,ac:95}, solar:{n:'フォレストノヴァ',t:'くさ',p:95,ac:85},
+  spark:{n:'エレキノック',t:'でんき',p:40,ac:100},   tbolt:{n:'サンダーランス',t:'でんき',p:70,ac:90}, storm:{n:'ギガボルテクス',t:'でんき',p:95,ac:85},
+  crystal:{n:'クリスタルレイ',t:'でんき',p:80,ac:90},
+  tackle:{n:'ぶちかまし',t:'ノーマル',p:35,ac:100},  quick:{n:'クイックダッシュ',t:'ノーマル',p:40,ac:100,pr:1},
+  slash:{n:'するどいツメ',t:'ノーマル',p:55,ac:95},   crush:{n:'メガインパクト',t:'ノーマル',p:85,ac:90},
+  gust:{n:'ウィンドカッター',t:'ひこう',p:40,ac:100}, sky:{n:'スカイダイブ',t:'ひこう',p:70,ac:90}, gale:{n:'テンペストウイング',t:'ひこう',p:95,ac:85},
+  rock1:{n:'ロックショット',t:'いわ',p:45,ac:95},     rock2:{n:'ボルダークラッシュ',t:'いわ',p:75,ac:85},
+  ice1:{n:'アイスニードル',t:'こおり',p:40,ac:100},   ice2:{n:'グレイシャーロア',t:'こおり',p:75,ac:90}
+};
+const EFF = {
+  'ほのお':{'くさ':2,'こおり':2,'かげ':2,'みず':0.5,'ほのお':0.5,'いわ':0.5},
+  'みず':{'ほのお':2,'いわ':2,'じめん':2,'くさ':0.5,'みず':0.5},
+  'くさ':{'みず':2,'いわ':2,'じめん':2,'ほのお':0.5,'くさ':0.5,'ひこう':0.5},
+  'でんき':{'みず':2,'ひこう':2,'かげ':2,'くさ':0.5,'でんき':0.5,'じめん':0.5},
+  'ひこう':{'くさ':2,'でんき':0.5,'いわ':0.5},
+  'いわ':{'ほのお':2,'ひこう':2,'こおり':2,'じめん':0.5},
+  'こおり':{'くさ':2,'ひこう':2,'じめん':2,'ほのお':0.5,'みず':0.5,'こおり':0.5},
+  'じめん':{'ほのお':2,'でんき':2,'いわ':2,'くさ':0.5,'ひこう':0.5},
+  'かげ':{'かげ':2,'くさ':2,'ほのお':0.5,'でんき':0.5,'ノーマル':0.5},
+  'ノーマル':{'いわ':0.5,'かげ':0.5}
+};
+const eff = (mt, dt) => { const v = (EFF[mt] && EFF[mt][dt]) || 1; return v > 1 ? 1.5 : v < 1 ? 0.67 : 1; }; // 相性倍率はマイルド(×1.5/×0.67)
+const TYPE_COL = {'ほのお':'#e82818','みず':'#3090f8','くさ':'#2a9a2a','でんき':'#c09000','ノーマル':'#687078','ひこう':'#a858d8','いわ':'#987838','こおり':'#2898b8','じめん':'#b07830','かげ':'#584878'};
+const TYPE_ICON = {'ほのお':'🔥','みず':'💧','くさ':'🌿','でんき':'⚡','ノーマル':'⭐','ひこう':'🪶','いわ':'🪨','こおり':'❄️','じめん':'⛰️','かげ':'🌑'};
+// ls: [わざ, 覚えるLv]　el: 進化レベル
+const MONS = {
+  1:{n:'イグニザード',t:'ほのお',hp:46,a:15,d:10,s:13,ls:[['ember',1],['tackle',1],['slash',9],['flame',13]],evo:5,el:16,desc:'高火力・炎のトカゲ'},
+  2:{n:'アクアトス',t:'みず',hp:48,a:13,d:14,s:10,ls:[['water',1],['tackle',1],['quick',8],['bubble',10]],evo:6,el:16,desc:'鉄壁甲羅・水ガメ'},
+  3:{n:'リーファル',t:'くさ',hp:50,a:13,d:13,s:11,ls:[['vine',1],['tackle',1],['quick',8],['leaf',10]],evo:7,el:16,desc:'高HP・花つぼみ竜'},
+  4:{n:'サンダリス',t:'でんき',hp:42,a:16,d:10,s:15,ls:[['spark',1],['quick',1],['tackle',6],['tbolt',13]],evo:8,el:16,desc:'俊足・雷ネズミ'},
+  5:{n:'グレンザード',t:'ほのお',hp:76,a:25,d:18,s:19,ls:[['ember',1],['quick',1],['slash',1],['flame',1],['inferno',30]]},
+  6:{n:'ハイドロトス',t:'みず',hp:78,a:23,d:22,s:14,ls:[['water',1],['quick',1],['slash',1],['bubble',1],['hydro',30]]},
+  7:{n:'フォレファル',t:'くさ',hp:80,a:23,d:21,s:15,ls:[['vine',1],['quick',1],['slash',1],['leaf',1],['solar',30]]},
+  8:{n:'ボルタリス',t:'でんき',hp:72,a:26,d:18,s:22,ls:[['spark',1],['quick',1],['tbolt',1],['crystal',1],['storm',32]]},
+  9:{n:'ラトラン',t:'ノーマル',hp:40,a:14,d:10,s:14,ls:[['tackle',1],['quick',1],['slash',8],['spark',12]],evo:10,el:16},
+  10:{n:'ラトロード',t:'ノーマル',hp:70,a:24,d:18,s:20,ls:[['tackle',1],['quick',1],['spark',1],['slash',1],['crush',28]]},
+  11:{n:'フェザック',t:'ひこう',hp:42,a:15,d:10,s:16,ls:[['gust',1],['tackle',1],['quick',6],['slash',10]],evo:12,el:18},
+  12:{n:'フェザード',t:'ひこう',hp:72,a:25,d:18,s:23,ls:[['gust',1],['quick',1],['slash',1],['sky',1],['gale',32]]},
+  13:{n:'イシコロン',t:'いわ',hp:45,a:13,d:18,s:6,ls:[['tackle',1],['rock1',1],['slash',10],['rock2',16]],evo:14,el:18},
+  14:{n:'ガンセキオン',t:'いわ',hp:75,a:24,d:28,s:10,ls:[['tackle',1],['rock1',1],['slash',1],['rock2',1],['crush',30]]},
+  15:{n:'ユキワタ',t:'こおり',hp:42,a:13,d:12,s:13,ls:[['tackle',1],['ice1',1],['quick',8],['ice2',18]],evo:16,el:26},
+  16:{n:'ヒョウガルド',t:'こおり',hp:72,a:26,d:18,s:24,ls:[['tackle',1],['ice1',1],['quick',1],['slash',1],['ice2',1],['crush',34]]},
+  17:{n:'ジェリーナ',t:'みず',hp:44,a:12,d:14,s:12,ls:[['tackle',1],['water',1],['quick',9],['bubble',15]],evo:18,el:20},
+  18:{n:'ジェリクイン',t:'みず',hp:74,a:23,d:22,s:18,ls:[['tackle',1],['water',1],['quick',1],['bubble',1],['spark',1],['hydro',32]]},
+  19:{n:'ビリムシ',t:'でんき',hp:40,a:14,d:12,s:12,ls:[['tackle',1],['spark',1],['quick',8],['tbolt',16]],evo:20,el:20},
+  20:{n:'ライボルグ',t:'でんき',hp:70,a:25,d:22,s:17,ls:[['spark',1],['quick',1],['slash',1],['tbolt',1],['storm',34]]},
+  21:{n:'ハナモグ',t:'くさ',hp:46,a:14,d:13,s:10,ls:[['tackle',1],['vine',1],['quick',8],['leaf',15]],evo:22,el:20},
+  22:{n:'ハナモグラン',t:'くさ',hp:78,a:25,d:22,s:15,ls:[['vine',1],['quick',1],['rock1',1],['leaf',1],['solar',34]]},
+  23:{n:'ヒバット',t:'ほのお',hp:40,a:15,d:10,s:16,ls:[['tackle',1],['ember',1],['gust',6],['flame',16]],evo:24,el:20},
+  24:{n:'カエンバット',t:'ほのお',hp:70,a:25,d:16,s:25,ls:[['ember',1],['gust',1],['flame',1],['sky',1],['inferno',34]]},
+  25:{n:'ペンギーノ',t:'こおり',hp:46,a:13,d:13,s:10,ls:[['tackle',1],['ice1',1],['water',6],['ice2',18]],evo:26,el:26},
+  26:{n:'エンペギン',t:'こおり',hp:80,a:24,d:23,s:16,ls:[['ice1',1],['water',1],['bubble',1],['ice2',1],['crush',34]]},
+  27:{n:'クリスタロン',t:'いわ',hp:80,a:26,d:30,s:16,ls:[['rock1',1],['crystal',1],['rock2',1],['ice2',1]],desc:'まぼろしの 結晶モンスター'},
+  28:{n:'ホラリオン',t:'ひこう',hp:95,a:32,d:26,s:30,ls:[['crush',1],['sky',1],['crystal',1],['gale',1]],desc:'地平線の 伝説'}
+};
+Object.assign(MOVES, {
+  sand:{n:'サンドショット',t:'じめん',p:40,ac:100}, quake:{n:'アースブレイク',t:'じめん',p:75,ac:90}, gaia:{n:'ガイアクエイク',t:'じめん',p:95,ac:85},
+  shade:{n:'シャドーニードル',t:'かげ',p:40,ac:100}, nclaw:{n:'ナイトクロー',t:'かげ',p:70,ac:95}, dark:{n:'ブラックアウト',t:'かげ',p:95,ac:85}
+});
+Object.assign(MONS[5], {evo:29, el:34}); Object.assign(MONS[6], {evo:30, el:34}); Object.assign(MONS[7], {evo:31, el:34});
+Object.assign(MONS, {
+  29:{n:'バーンドレイク',t:'ほのお',hp:96,a:31,d:23,s:24,ls:[['quick',1],['slash',1],['flame',1],['inferno',1],['crush',40]]},
+  30:{n:'タイダルトス',t:'みず',hp:100,a:28,d:28,s:18,ls:[['quick',1],['slash',1],['bubble',1],['hydro',1],['ice2',40]]},
+  31:{n:'エルダファル',t:'くさ',hp:102,a:28,d:27,s:19,ls:[['quick',1],['slash',1],['leaf',1],['solar',1],['quake',40]]},
+  32:{n:'モグリン',t:'じめん',hp:44,a:14,d:12,s:10,ls:[['tackle',1],['sand',1],['slash',9],['quake',17]],evo:33,el:20},
+  33:{n:'ドリモール',t:'じめん',hp:74,a:26,d:20,s:16,ls:[['sand',1],['slash',1],['rock1',1],['quake',1],['gaia',34]]},
+  34:{n:'スナヘビ',t:'じめん',hp:42,a:15,d:11,s:14,ls:[['tackle',1],['sand',1],['quick',8],['quake',18]],evo:35,el:24},
+  35:{n:'サンドナーガ',t:'じめん',hp:76,a:26,d:20,s:22,ls:[['sand',1],['quick',1],['slash',1],['quake',1],['gaia',36]]},
+  36:{n:'カゲボウ',t:'かげ',hp:38,a:16,d:9,s:15,ls:[['tackle',1],['shade',1],['quick',8],['nclaw',18]],evo:37,el:22},
+  37:{n:'ヨミカゲ',t:'かげ',hp:68,a:27,d:16,s:24,ls:[['shade',1],['quick',1],['slash',1],['nclaw',1],['dark',36]]},
+  38:{n:'フワモコ',t:'ひこう',hp:46,a:12,d:13,s:11,ls:[['tackle',1],['gust',1],['quick',8],['sky',17]],evo:43,el:22},
+  39:{n:'コロモス',t:'くさ',hp:36,a:11,d:10,s:9,ls:[['tackle',1],['vine',5]],evo:40,el:10},
+  40:{n:'モスフェア',t:'ひこう',hp:60,a:20,d:15,s:20,ls:[['tackle',1],['vine',1],['gust',1],['leaf',16],['sky',22]]},
+  41:{n:'コイッチ',t:'みず',hp:40,a:12,d:11,s:14,ls:[['tackle',1],['water',1],['quick',9],['bubble',16]],evo:42,el:22},
+  42:{n:'リュウギョ',t:'みず',hp:82,a:27,d:20,s:20,ls:[['water',1],['quick',1],['slash',1],['bubble',1],['hydro',34]]},
+  43:{n:'クラウドラム',t:'ひこう',hp:80,a:22,d:22,s:17,ls:[['gust',1],['quick',1],['spark',1],['sky',1],['gale',34]]},
+  44:{n:'ユキウサ',t:'こおり',hp:40,a:14,d:10,s:17,ls:[['tackle',1],['ice1',1],['quick',1],['ice2',18]],evo:45,el:28},
+  45:{n:'フブキウサ',t:'こおり',hp:70,a:26,d:16,s:27,ls:[['ice1',1],['quick',1],['slash',1],['ice2',1],['crush',36]]},
+  46:{n:'キノコロ',t:'くさ',hp:44,a:13,d:13,s:8,ls:[['tackle',1],['vine',1],['shade',10],['leaf',16]],evo:47,el:24},
+  47:{n:'マッシュロード',t:'くさ',hp:80,a:24,d:24,s:12,ls:[['vine',1],['shade',1],['leaf',1],['nclaw',1],['solar',36]]},
+  48:{n:'コグマ',t:'ノーマル',hp:48,a:15,d:11,s:10,ls:[['tackle',1],['quick',6],['slash',10],['crush',20]],evo:49,el:26},
+  49:{n:'グリズロン',t:'ノーマル',hp:86,a:28,d:20,s:16,ls:[['quick',1],['slash',1],['rock1',1],['crush',1],['quake',34]]},
+  50:{n:'ヤミクロウ',t:'かげ',hp:78,a:28,d:20,s:26,ls:[['gust',1],['nclaw',1],['sky',1],['dark',1]],desc:'ナイトクロウ団の 象徴'}
+});
+const TOTAL = Object.keys(MONS).length;
+function evoFor(id, lv) { while (MONS[id].evo && lv >= MONS[id].el) id = MONS[id].evo; return id; }
+const RIVAL_PICK = {1:3, 2:1, 3:2}; // ライバルは残ったパートナーのうち1匹を選ぶ
+const BADGE = {1:'クオーツ', 2:'ミナモ', 3:'ライデン', 4:'モリノハ', 5:'ヒョウガ'};
+const NEXT_HINT = {1:'東の 3ばんどうろを ぬけて\nミナモシティへ 向かおう！', 2:'北の 4ばんどうろの 先、\nライデンシティを めざそう！', 3:'東の 5ばんどうろ（森）を ぬけて\nモリノハタウンへ！', 4:'北の 雪の 6ばんどうろを こえて\nヒョウガタウンへ！', 5:'ヒョウガタウンの 北、\nホライゾン山への 道が ひらいた！'};
+
+// === マップ（スクロール式・world.py から生成）===
+// T:木 G:草むら F:花 W:水 b:橋 O:岩 B:柵 L:段差 R/r/Y:屋根 H:壁 P:ケアセンター D:扉 C:洞くつ X:柱 d:道 ^v<>:出入口 / 室内 K:PC M:カウンター k:棚 E:出口
+const MAPS = {"kotonoha":{"n":"コトノハタウン","sub":"研究所・ケアセンター / ▲北:1ばんどうろ","g":["TTTTTTTTTTT^^TTTTTTTTTTT","T..........dd..........T","T.rrrr.....dd...YYYYYY.T","T.HDHH.....dd...HHDHHH.T","T..d.......dd.....d....T","T..dddddddddddddddd....T","T..d.......dd.....d....T","T.FFF......dd.....d.FF.T","T.FFF..RRRRdd..rrrr.FF.T","T......HPHHdd..HDHH....T","T.......d..dd...d......T","T..BBBB.dddddddddd.....T","T..WWWB....dd.....GGGG.T","T..WWWB....dd.....GGGG.T","T..WWWB....dd.....GGGG.T","T..BBBB....dd..........T","T..........dd..........T","TTTTTTTTTTTTTTTTTTTTTTTT"],"an":{"N":[11,1],"lab":[18,4],"pc":[8,10]},"npcs":[{"id":"leon","r":"npc","spr":"npc_red","n":"ライバル レオン","txt":"レオン「まってたぜ！ ハルカ博士に もらった\nモンスターで さっそく 勝負だ！」","win":"レオン「くっ… やるじゃないか！\nつぎは まけないからな！」","team":"rival1","dir":"right","sight":3,"after":"レオン「おれは もっと 強くなる！\nバッジ集めで 勝負だ！」","x":10,"y":6},{"id":"s1","r":"sign","txt":"【コトノハタウン】\nはじまりの 風が ふく町。\n北(▲)は 1ばんどうろ。","x":9,"y":13},{"id":"t_koto1","r":"talk","spr":"npc_green","n":"こども","txts":[[0,"こども「草むらを あるくと やせいの\nモンスターが とびだしてくるよ！\nHPを へらしてから カプセルを なげてね。」"],[1,"こども「バッジ もってるの！？\nすごーい！」"]],"x":15,"y":14},{"id":"t_koto2","r":"talk","spr":"npc_purple","n":"おかあさん","txts":[[0,"おかあさん「つかれたら 赤い屋根の\nケアセンターで やすむのよ。\nいってらっしゃい！」"],[5,"おかあさん「まあ！ バッジを 5つも！\nホライゾン山、気をつけてね。」"]],"x":5,"y":16}],"items":[{"id":"it_kotonoha_8","x":17,"y":16,"it":"pot","q":1}],"town":true,"w":[9,9,39,11],"lv":[2,3],"wp":{"^":{"m":"route1","x":9,"y":24}},"doors":[{"x":18,"y":3,"m":"lab","tx":7,"ty":8}]},"lab":{"n":"ハルカ博士の研究所","sub":"博士に 話を きこう / ▼出口","g":["HHHHHHHHHHHHHHHH","HkkkkK....kkkkkH","H..............H","H....MMM.......H","H..............H","H..X...........H","H..............H","H......dd......H","H......dE......H","HHHHHHHHHHHHHHHH"],"an":{"start":[9,4],"in":[7,8]},"npcs":[{"id":"prof","r":"talk","spr":"npc_white","n":"ハルカ博士","txts":[[0,"ハルカ博士「ホライゾン山には 伝説の\nモンスター ホラリオンが ねむる。\n5つのバッジが 山への 通行証じゃ！」"],[1,"ハルカ博士「おお、クオーツバッジか！\nつぎは 東の ミナモシティじゃ。」"],[2,"ハルカ博士「ナイトクロウ団が 伝説を\nねらっておるらしい… 気をつけるのじゃ。」"],[4,"ハルカ博士「あと ひとつ！ 北の\nヒョウガタウンの マスターは 手ごわいぞ。」"],[5,"ハルカ博士「5つ そろったか！\nホライゾン山で 伝説が まっておる！」"]],"x":9,"y":3},{"id":"t_lab","r":"talk","spr":"npc_blue","n":"研究員","txts":[[0,"研究員「図鑑は メニュー(B)から\n見られますよ。 ぜんぶで 50種類！\nつかまえると 説明が 読めます。」"]],"x":12,"y":5}],"indoor":true,"floor":"lab","wp":{},"exit":{"m":"kotonoha","x":18,"y":4}},"route1":{"n":"1ばんどうろ","sub":"▼南:コトノハ / ▲北:ソヨカゼタウン","g":["TTTTTTTTT^^TTTTTTTTT","T........dd........T","T.GGGG...dd...GGGG.T","T.GGGG...dd...GGGG.T","T.GGGG...dd...GGGG.T","T........dd........T","T..TTTTT.dd.WWWW...T","T........dd.WWWW...T","T........dd.WWWW...T","TLLLLLL..dd........T","T........dd..GGGGG.T","T.GGG....dd..GGGGG.T","T.GGG....ddddddd...T","T.GGG..........d...T","T......TTTTTT..d...T","T......T....T..d...T","TTTTT..T....T..d...T","T......T....T..d...T","T......TT.TTT..d...T","T..GGGG........d...T","T..GGGG..ddddddd...T","T..GGGG..dd........T","T........dd....FF..T","T........dd....FF..T","T........dd........T","TTTTTTTTTvvTTTTTTTTT"],"an":{"N":[9,1],"S":[9,24]},"npcs":[{"id":"tr1b","r":"npc","spr":"npc_purple","n":"おてんばガール ミク","txt":"ミク「目が あったら 勝負！\nそれが トレーナーの ルールよ！」","win":"ミク「きゃー まけちゃった！」","team":[[39,4],[9,5]],"dir":"right","sight":4,"after":"ミク「段差(だんさ)は 上から 下へ\nとびおりる ことが できるのよ。」","x":2,"y":8},{"id":"s_r1","r":"sign","txt":"【1ばんどうろ】\n▲ソヨカゼタウン / ▼コトノハタウン\nトレーナーの 視線に 注意！","x":3,"y":15},{"id":"tr1","r":"npc","spr":"npc_green","n":"むぎわらボーイ ソラ","txt":"ソラ「くさむらで つかまえた\nぼくの モンスターと 勝負だ！」","win":"ソラ「うわー まけた！\nきみの モンスター つよいね！」","team":[[9,4],[11,5]],"dir":"left","sight":3,"after":"ソラ「草むらの モンスターは\nHPを へらすと つかまえやすいよ！」","x":17,"y":17}],"items":[{"id":"it_route1_2","x":17,"y":7,"it":"ball","q":2},{"id":"it_route1_5","x":9,"y":16,"it":"pot","q":2}],"w":[9,9,11,11,39,39,4],"lv":[3,5],"wp":{"v":{"m":"kotonoha","x":11,"y":1},"^":{"m":"soyokaze","x":12,"y":14}}},"soyokaze":{"n":"ソヨカゼタウン","sub":"ケアセンター / ▶東:2ばんどうろ","g":["TTTTTTTTTTTTTTTTTTTTTTTT","T......................T","T..RRRR.....rrrr..rrrr.T","T..HPHH.....HDHH..HDHH.T","T...d.......d......d...T","T...ddddddddddddddddddd>","T...d.......dd.........T","T...d.......dd..FFFF...T","T.WWWW......dd..FFFF...T","T.WWWW......dd.........T","T.WWWW.BBBB.dd..GGGG...T","T......B..B.dd..GGGG...T","T......B..B.dd..GGGG...T","T...........dd.........T","T...........dd.........T","TTTTTTTTTTTTvvTTTTTTTTTT"],"an":{"pc":[4,4],"E":[22,5],"S":[12,14]},"npcs":[{"id":"t_soyo","r":"talk","spr":"npc_green","n":"おばあさん","txts":[[0,"おばあさん「いわタイプには\nみず・くさ・じめんの わざが よく きくよ。\nクオーツの ジムに いくなら おぼえておき。」"]],"x":7,"y":6},{"id":"s2","r":"sign","txt":"【ソヨカゼタウン】\nモンスターは 決まった レベルで しんかする。\n東(▶)へ進むと 2ばんどうろ！","x":8,"y":8},{"id":"aide","r":"giftmon","spr":"npc_white","n":"博士の助手 ミドリ","x":21,"y":8}],"items":[{"id":"it_soyokaze_6","x":8,"y":12,"it":"ball","q":3}],"town":true,"w":[39,9,48],"lv":[4,6],"wp":{"v":{"m":"route1","x":9,"y":1},">":{"m":"route2","x":1,"y":6}}},"route2":{"n":"2ばんどうろ","sub":"◀西:ソヨカゼ / ▲北東:クオーツ / 中央:洞くつ","g":["TTTTTTTTTTTTTTOOCOOTTTTTTT^^TT","T..GGGG.......OOdOO.......dd.T","T..GGGG.........d....GGGG.dd.T","T..GGGG..TTT....d....GGGG.dd.T","T........T.T....d....GGGG.dd.T","T...............d.........dd.T","<ddddddddddddddddddddddddddd.T","T............................T","T......LLLLLL................T","T..GGG.........WWWWWW..GGGG..T","T..GGG.........WWWWWW..GGGG..T","T..GGG.........WWWWWW..GGGG..T","T............................T","TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"],"an":{"cave":[16,1],"N":[26,1],"W":[1,6]},"npcs":[{"id":"tr2c","r":"npc","spr":"npc_yellow","n":"虫あみボーイ タク","txt":"タク「ぼくの そだてた ムシたちを\n見てくれよ！」","win":"タク「ああっ ぼくの ムシが…！」","team":[[39,6],[21,7]],"dir":"up","sight":2,"after":"タク「コロモスは Lv10で もう しんかするんだ。\nはやいだろ？」","x":7,"y":7},{"id":"tr2","r":"npc","spr":"npc_green","n":"クライマー ゴウ","txt":"ゴウ「山で きたえた モンスターの\nちから みせてやるぞ！」","win":"ゴウ「ぬう… みごとだ！」","team":[[9,6],[13,7]],"dir":"up","sight":2,"after":"ゴウ「クオーツの マスターは\nいわタイプの つかい手だ。」","x":14,"y":7},{"id":"tr2b","r":"npc","spr":"npc_blue","n":"やまガール ミオ","txt":"ミオ「洞くつの 帰りなの。\nうでだめし させて！」","win":"ミオ「つよいのね！」","team":[[48,7],[32,7]],"dir":"up","sight":3,"after":"ミオ「北の 洞くつには かげタイプの\nモンスターが すんでいるわ。」","x":8,"y":10}],"items":[{"id":"it_route2_3","x":10,"y":4,"it":"pot","q":2}],"w":[9,11,13,21,48,32],"lv":[5,8],"wp":{"<":{"m":"soyokaze","x":22,"y":5},"^":{"m":"quartz","x":12,"y":14}},"doors":[{"x":16,"y":0,"m":"cave","tx":11,"ty":14}]},"cave":{"n":"かがやきの洞くつ","sub":"どこでも やせいが 出る / ▼出口","g":["OOOOOOOOOOOOOOOOOOOOOO","O....OOOO............O","O.OO.OOOO.OOOOOOOOO..O","O.OO......O.......O..O","O.OOOOOOO.O.OOOOO.O.OO","O.......O.O.O...O.O..O","OOOOOO..O.O.O...O.OO.O","O....O..O.O.OO.OO....O","O....O..O.O..........O","O....O..O.OOOOOOOOOO.O","O.OOOO..O............O","O.......OOOOOO.OOOOOOO","O.OOOO.......O.......O","O.O..OOOOOO..O.OOOOO.O","O....O...............O","OOOOOOOOOOOCOOOOOOOOOO"],"an":{"in":[11,14]},"npcs":[{"id":"tr_cave","r":"npc","spr":"npc_yellow","n":"たんけんか リク","txt":"リク「洞くつの おくで 出会うとは！\nこれも 何かの えん、勝負だ！」","win":"リク「まいった まいった！」","team":[[32,8],[36,9]],"dir":"right","sight":3,"after":"リク「かげタイプには ほのおと でんきが\nよく きくぞ。 光に 弱いのさ。」","x":2,"y":8},{"id":"t_cave","r":"talk","spr":"npc_green","n":"鉱石マニア","txts":[[0,"鉱石マニア「この 洞くつの 光る 石は\nホライゾン山の 結晶と おなじ ものらしい。\nまぼろしの クリスタロン… 見てみたいなあ。」"]],"x":17,"y":14}],"items":[{"id":"it_cave_1","x":16,"y":1,"it":"rev","q":1},{"id":"it_cave_2","x":13,"y":5,"it":"sball","q":2},{"id":"it_cave_4","x":4,"y":14,"it":"pot2","q":1}],"theme":"cave","encAll":0.07,"w":[13,13,32,32,36,36,23],"lv":[7,10],"wp":{},"doors":[{"x":11,"y":15,"m":"route2","tx":16,"ty":1}]},"quartz":{"n":"クオーツタウン","sub":"右上:ジム(いわ) / ▶東:3ばんどうろ","g":["TTTTTTTTTTTTTTTTTTTTTTTT","T..OO...........YYYYYY.T","T..OO..RRRR.....YYYYYY.T","T......HPHH.....HHDHHH.T","T.......d.........d....T","T...ddddddddddddddddddd>","T...d.......dd.........T","T.rrrr......dd..rrrr...T","T.HDHH......dd..HDHH...T","T..d........dd...d.....T","T..dddddddddddddddd....T","T...........dd.....OO..T","T..FF.......dd.....OO..T","T..FF.......dd.........T","T...........dd.........T","TTTTTTTTTTTTvvTTTTTTTTTT"],"an":{"pc":[8,4],"gym":[18,4],"E":[21,5],"S":[12,14]},"npcs":[{"id":"g_q","r":"guard","need":1,"n":"警備員","txt":"警備員「この先は 3ばんどうろ。\nクオーツバッジを 持つ人しか\n通せない きまりなんだ。」","w":1,"x":22,"y":5},{"id":"s_q","r":"sign","txt":"【クオーツタウン】\n岩と 鉱石の 町。\n右上の 建物が クオーツジム！","x":7,"y":6},{"id":"t_q1","r":"talk","spr":"npc_yellow","n":"鉱夫","txts":[[0,"鉱夫「ジムの 中にも トレーナーが いる。\n目が あうと 勝負に なるから\nケアセンターで 回復してから 行きな。」"],[1,"鉱夫「ガロンに 勝ったのか！\nたいした もんだ。」"]],"x":21,"y":8},{"id":"t_q2","r":"talk","spr":"npc_purple","n":"女の子","txts":[[0,"女の子「ショップは ケアセンターの 中よ。\nバッジが ふえると 品ぞろえも ふえるの。」"]],"x":8,"y":12}],"items":[{"id":"it_quartz_0","x":18,"y":13,"it":"ball","q":2}],"town":true,"wp":{"v":{"m":"route2","x":26,"y":1},">":{"m":"route3","x":1,"y":5}},"doors":[{"x":18,"y":3,"m":"gym1","tx":7,"ty":10}]},"route3":{"n":"3ばんどうろ（海辺）","sub":"◀西:クオーツ / ▶東:ミナモシティ","g":["TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT","T..GGGG..........T....GGGG.....T","T..GGGG..........T....GGGG.....T","T..GGGG..........T....GGGG.....T","T................T.............T","<dddddddddddddddddddddddddddddd>","T................T.............T","T................T.............T","WWWWWWWWWWWbWWWWWWWWWWWWWWWWWWWW","WWWWWWWWWWWbWWWWWWWWWWWWWWWWWWWW","WWWWWWWWW.....WWWWWWWWWWWWWWWWWW","WWWWWWWWW.....WWWWWWWWWWWWWWWWWW","WWWWWWWWW.....WWWWWWWWWWWWWWWWWW","WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW"],"an":{"W":[1,5],"E":[30,5]},"npcs":[{"id":"tr3","r":"npc","spr":"npc_blue","n":"ビーチボーイ カイ","txt":"カイ「海で きたえた\nぼくの モンスター、すごいよ！」","win":"カイ「波に のまれた〜！」","team":[[17,11],[41,12]],"dir":"down","sight":3,"after":"カイ「ミナモの マスターは\nみずタイプの 名人さ。」","x":9,"y":2},{"id":"gr1","r":"npc","spr":"npc_dark","n":"ナイトクロウ団員","txt":"団員「ナイトクロウ団の ジャマを\nする気か？ 痛い目に あわせてやる！」","win":"団員「ちっ… おぼえてろ！」","team":[[23,12],[36,12]],"dir":"down","sight":0,"vanish":true,"x":17,"y":5},{"id":"tr3b","r":"npc","spr":"npc_purple","n":"スイマー ナミ","txt":"ナミ「およぐ 前の じゅんび運動に\n1戦 どう？」","win":"ナミ「いい 運動に なったわ！」","team":[[41,11],[25,12]],"dir":"up","sight":1,"after":"ナミ「桟橋(さんばし)の 先の 小島に\n何か おちてたわよ。」","x":7,"y":6},{"id":"s_r3","r":"sign","txt":"【3ばんどうろ】\n潮風の かおる 海辺の 道。\n▶東は ミナモシティ","x":25,"y":7}],"items":[{"id":"it_route3_2","x":28,"y":2,"it":"pot2","q":1},{"id":"it_route3_7","x":11,"y":11,"it":"sball","q":2}],"theme":"beach","w":[17,17,41,41,25,2,34,11],"lv":[10,13],"wp":{"<":{"m":"quartz","x":21,"y":5},">":{"m":"minamo","x":1,"y":6}}},"minamo":{"n":"ミナモシティ","sub":"右上:ジム(みず) / ▲北:4ばんどうろ","g":["TTTTTTTTTTTT^^TTTTTTTTTTTT","T...........dd...........T","T..RRRR.....dd....YYYYYY.T","T..HPHH.....dd....YYYYYY.T","T...d.......dd....HHDHHH.T","T...dddddddddddddddddd...T","<dddd.......dd...........T","T...........dd..rrrr.....T","T..rrrr.....dd..HDHH.....T","T..HDHH.....dd...d.......T","T...d.......dddddd.......T","T...dddddddddd...........T","T............d.....FF....T","T............d.....FF....T","WWWWWWWWWWWWWbWWWWWWWWWWWW","WWWWWWWWWWWWWbWWWWWWWWWWWW","WWWWWWWWWWW.....WWWWWWWWWW","WWWWWWWWWWWWWWWWWWWWWWWWWW"],"an":{"N":[12,2],"pc":[4,4],"gym":[21,5],"W":[1,6]},"npcs":[{"id":"g_m","r":"guard","need":2,"n":"警備員","txt":"警備員「この先は 4ばんどうろ。\nミナモバッジが 必要だよ。」","w":2,"x":12,"y":1},{"id":"t_min2","r":"talk","spr":"npc_blue","n":"船のり","txts":[[0,"船のり「みずタイプには くさと でんきが\nよく きく。 ジムに いどむなら\nおぼえて おくと いいぞ。」"]],"x":22,"y":8},{"id":"s_m","r":"sign","txt":"【ミナモシティ】\n海と みなとの 町。\n右上の 建物が ミナモジム！","x":7,"y":10},{"id":"t_min","r":"talk","spr":"npc_green","n":"漁師","txts":[[0,"漁師「ナイトクロウ団とかいう 連中が\n伝説の モンスターを ねらってるらしい…」"],[2,"漁師「北の ライデンシティには\nでんきタイプの マスターが いるぞ。\nじめんタイプが いると 楽だ。」"]],"x":3,"y":13}],"items":[{"id":"it_minamo_0","x":13,"y":16,"it":"rev","q":1}],"town":true,"theme":"beach","wp":{"<":{"m":"route3","x":30,"y":5},"^":{"m":"route4","x":9,"y":24}},"doors":[{"x":20,"y":4,"m":"gym2","tx":7,"ty":10}]},"route4":{"n":"4ばんどうろ","sub":"▼南:ミナモ / ▲北:ライデンシティ","g":["TTTTTTTTT^^TTTTTTTTT","T........dd........T","T.GGGG...dd...OOO..T","T.GGGG...dd...O.O..T","T.GGGG...dd...O.O..T","T........dd........T","T........dd..GGGG..T","T........dd..GGGG..T","TOOOOOOOOddOOOOOOOOT","T........dd........T","T.GGGG...dd........T","T.GGGG...dd........T","T.GGGG...dd..WWWW..T","T........dd..WWWW..T","TLLLLLL..dd..WWWW..T","T........dd........T","TOOOOOOOOddOOOOOOOOT","T........dd........T","T..GGGG..dd..TTT...T","T..GGGG..dd..T.....T","T..GGGG..dd..TTT...T","T........dd........T","T........dd....FF..T","T........dd....FF..T","T........dd........T","TTTTTTTTTvvTTTTTTTTT"],"an":{"N":[9,1],"S":[9,24]},"npcs":[{"id":"tr4","r":"npc","spr":"npc_yellow","n":"エンジニア デン","txt":"デン「発電所の 点検の とちゅうだが…\nバトルは べつばらだ！」","win":"デン「ショートした…！」","team":[[19,15],[19,16]],"dir":"right","sight":4,"after":"デン「でんきタイプは じめんタイプに\n弱いんだ。 おぼえておけよ。」","x":3,"y":6},{"id":"gr2","r":"npc","spr":"npc_dark","n":"ナイトクロウ団員","txt":"団員「ライデンの 発電所を\nいただく 計画を 知られたか！」","win":"団員「ぐぬぬ… ゼクス様に\nほうこくだ！」","team":[[23,16],[36,17]],"dir":"down","sight":0,"vanish":true,"w":2,"x":9,"y":8},{"id":"tr4b","r":"npc","spr":"npc_green","n":"ハイカー ヤマト","txt":"ヤマト「いい 足腰 してるな！\nひと勝負 どうだ！」","win":"ヤマト「山は ひろいな…！」","team":[[34,15],[13,16]],"dir":"left","sight":3,"after":"ヤマト「この道の 岩場には\nめずらしい モンスターも 出るらしい。」","x":13,"y":10},{"id":"leon2","r":"npc","spr":"npc_red","n":"ライバル レオン","txt":"レオン「よう！ バッジ 2つか。\nおれも 負けてないぜ… 勝負だ！」","win":"レオン「また 負けた…！\nくやしいけど おまえ 強いな。」","team":"rival2","dir":"down","sight":0,"vanish":true,"w":2,"x":9,"y":16},{"id":"s_r4","r":"sign","txt":"【4ばんどうろ】\n▲ライデンシティ / ▼ミナモシティ\n岩場の 多い 山あいの 道。","x":4,"y":22}],"items":[{"id":"it_route4_2","x":15,"y":3,"it":"pot2","q":2},{"id":"it_route4_7","x":14,"y":19,"it":"sball","q":2}],"w":[19,19,34,34,23,10,13,1,38],"lv":[14,17],"wp":{"v":{"m":"minamo","x":12,"y":2},"^":{"m":"raiden","x":12,"y":14}}},"raiden":{"n":"ライデンシティ","sub":"左上:ジム(でんき) / ▶東:5ばんどうろ","g":["TTTTTTTTTTTTTTTTTTTTTTTT","T..YYYYYY..............T","T..YYYYYY...RRRR..rrrr.T","T..HHDHHH...HPHH..HDHH.T","T....d.......d.....d...T","T....dddddddddddddddddd>","T....d......dd.........T","T....d......dd..XX.XX..T","T....d......dd..XX.XX..T","T.rrrr......dd.........T","T.HDHH......dd..GGGG...T","T..d........dd..GGGG...T","T..dddddddddd..........T","T...........dd.........T","T...........dd.........T","TTTTTTTTTTTTvvTTTTTTTTTT"],"an":{"gym":[5,4],"pc":[13,4],"E":[21,5],"S":[12,14]},"npcs":[{"id":"g_r","r":"guard","need":3,"n":"警備員","txt":"警備員「森の 道は あぶない。\nライデンバッジが ないと 通せないよ。」","w":1,"x":22,"y":5},{"id":"t_rai","r":"talk","spr":"npc_green","n":"発電所の人","txts":[[0,"発電所の人「ナイトクロウ団の ボス\nゼクスは ホライゾン山を\nねらっているらしい。」"]],"x":2,"y":7},{"id":"s_rai","r":"sign","txt":"【ライデンシティ】\nいなずまの かがやく 電気の 町。\n左上の 建物が ライデンジム！","x":8,"y":10}],"items":[{"id":"it_raiden_8","x":17,"y":12,"it":"hball","q":1}],"town":true,"w":[19,4,38],"lv":[15,18],"wp":{"v":{"m":"route4","x":9,"y":1},">":{"m":"route5","x":1,"y":6}},"doors":[{"x":5,"y":3,"m":"gym3","tx":7,"ty":10}]},"route5":{"n":"5ばんどうろ（森）","sub":"◀西:ライデン / ▶東:モリノハタウン","g":["TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT","T..GGGG..T.....T...GGGG........T","T..GGGG..T.....T...GGGG..TTTT..T","T..GGGG..T.....T...GGGG..T..T..T","T........TT.TTTT.........T..T..T","T..............T..TTT....TT.T..T","<dddddd........T..TTT..........T","T.....d........T.......GGGG....T","T.....d........T.......GGGG....T","T.....d..GGGG..T.......GGGG....T","T.....ddddddddddddddddddddddddd>","T........GGGG..T...............T","T..TTT...GGGG..T..GGGG.........T","T..TTT.........T..GGGG.........T","T......FF......T..GGGG.........T","T......FF......T...............T","TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"],"an":{"W":[1,6],"E":[30,10]},"npcs":[{"id":"tr5","r":"npc","spr":"npc_green","n":"もりガール ハナ","txt":"ハナ「森の モンスターたちと\nいっしょに 勝負よ！」","win":"ハナ「森の 風が きみに\nみかたしたのね。」","team":[[21,20],[46,21]],"dir":"left","sight":3,"after":"ハナ「モリノハの マスターは\nくさタイプ。ほのおや ひこうが きくよ。」","x":9,"y":7},{"id":"tr5b","r":"npc","spr":"npc_blue","n":"レンジャー シン","txt":"シン「森の パトロール中だ。\nきみの 実力を たしかめさせて もらう！」","win":"シン「合格だ！」","team":[[40,20],[12,21]],"dir":"down","sight":3,"after":"シン「ナイトクロウ団の 幹部が\nこの森を うろついていた。 気をつけろ。」","x":18,"y":8},{"id":"gr3","r":"npc","spr":"npc_dark","n":"ナイトクロウ団 幹部","txt":"幹部「ここまで 来るとは…\nゼクス様の 計画の ジャマはさせない！」","win":"幹部「ば、ばかな…！\n山で ゼクス様が まっているぞ！」","team":[[24,22],[37,22],[14,22]],"dir":"down","sight":0,"vanish":true,"x":15,"y":10},{"id":"s_r5","r":"sign","txt":"【5ばんどうろ】\nふかい 森の 道。 まよわぬよう 注意。\n▶東は モリノハタウン","x":24,"y":13},{"id":"t_r5","r":"talk","spr":"npc_yellow","n":"きのこ採り","txts":[[0,"きのこ採り「この森の キノコロは\nかげの わざも つかうんだ。\nふしぎな キノコだよなあ。」"]],"x":11,"y":15}],"items":[{"id":"it_route5_1","x":12,"y":2,"it":"pot2","q":2},{"id":"it_route5_3","x":26,"y":3,"it":"hball","q":2}],"w":[21,46,46,40,19,12,3,36,48],"lv":[19,22],"wp":{"<":{"m":"raiden","x":21,"y":5},">":{"m":"morinoha","x":1,"y":6}}},"morinoha":{"n":"モリノハタウン","sub":"右上:ジム(くさ) / ▲北:6ばんどうろ","g":["TTTTTTTTTTT^^TTTTTTTTTTT","T..........dd..........T","T.FF.......dd...YYYYYY.T","T.FF..RRRR.dd...YYYYYY.T","T.....HPHH.dd...HHDHHH.T","T......d...dd.....d....T","<dddddddddddddddddd....T","T..........dd..........T","T.rrrr.....dd..rrrr....T","T.HDHH.....dd..HDHH....T","T..d.......dd...d......T","T..ddddddddddddddd.....T","T.....WWWW.....GGGG....T","T.....WWWW.....GGGG....T","T.....WWWW.............T","TTTTTTTTTTTTTTTTTTTTTTTT"],"an":{"N":[11,2],"pc":[7,5],"gym":[18,5],"W":[1,6]},"npcs":[{"id":"g_mo","r":"guard","need":4,"n":"警備員","txt":"警備員「雪の 道へは\nモリノハバッジが 必要だよ。」","w":2,"x":11,"y":1},{"id":"s_mo","r":"sign","txt":"【モリノハタウン】\n森に いだかれた しずかな 町。\n右上の 建物が モリノハジム！","x":8,"y":8},{"id":"t_mor","r":"talk","spr":"npc_white","n":"長老","txts":[[0,"長老「ホラリオンは 地平線の\nかなたから 来たと 言い伝えられて おる。」"],[4,"長老「北の 雪道は さむいぞ。\nこおりタイプには ほのおや いわが きく。」"]],"x":21,"y":9}],"items":[{"id":"it_morinoha_9","x":3,"y":13,"it":"pot3","q":1}],"town":true,"w":[46,21,40],"lv":[20,23],"wp":{"<":{"m":"route5","x":30,"y":10},"^":{"m":"route6","x":9,"y":24}},"doors":[{"x":18,"y":4,"m":"gym4","tx":7,"ty":10}]},"route6":{"n":"6ばんどうろ（雪道）","sub":"▼南:モリノハ / ▲北:ヒョウガタウン","g":["TTTTTTTTT^^TTTTTTTTT","T........dd........T","T..GGGG..dd..GGGG..T","T..GGGG..dd..GGGG..T","T........dd..GGGG..T","T.OOO....dd........T","T.O......dd........T","T.OOO....dd........T","TOOOOOOOOddOOOOOOOOT","T........dd........T","T.WWWWW..dd..GGGG..T","T.WWWWW..dd..GGGG..T","T.WWWWW..dd..GGGG..T","T........dd........T","T........dd..LLLLL.T","T........dd........T","T.GGGG...dd..OO....T","T.GGGG...dd..OO....T","T.GGGG...dd........T","T........dd..TTTT..T","T........dd..TTTT..T","T........dd........T","T.FF.....dd....GGG.T","T.FF.....dd....GGG.T","T........dd........T","TTTTTTTTTvvTTTTTTTTT"],"an":{"N":[9,1],"S":[9,24]},"npcs":[{"id":"tr6b","r":"npc","spr":"npc_yellow","n":"ボーダー レイ","txt":"レイ「雪の上なら だれにも 負けない！」","win":"レイ「すべって ころんだ…！」","team":[[44,25],[14,26]],"dir":"left","sight":3,"after":"レイ「ユキウサは すばやいぞ。\nつかまえるなら HPを しっかり へらせ。」","x":14,"y":6},{"id":"leon3","r":"npc","spr":"npc_red","n":"ライバル レオン","txt":"レオン「バッジ 4つ…！ おれも 4つだ。\nここで どっちが 上か きめようぜ！」","win":"レオン「……おまえには かなわないな。\n山で また 会おう！」","team":"rival3","dir":"down","sight":0,"vanish":true,"w":2,"x":9,"y":8},{"id":"tr6","r":"npc","spr":"npc_blue","n":"スキーヤー ユキ","txt":"ユキ「雪道で 鍛えた わたしの\nモンスター、ためしてみる？」","win":"ユキ「ころんじゃった〜！」","team":[[15,25],[25,26]],"dir":"right","sight":4,"after":"ユキ「ヒョウガの マスターは\nこおりの 女王って よばれてるの。」","x":4,"y":14},{"id":"s_r6","r":"sign","txt":"【6ばんどうろ】\n▲ヒョウガタウン / ▼モリノハタウン\nふぶきに 注意。","x":3,"y":20}],"items":[{"id":"it_route6_2","x":3,"y":6,"it":"pot3","q":1},{"id":"it_route6_6","x":16,"y":17,"it":"hball","q":2}],"theme":"snow","w":[15,15,44,44,25,14,12,43],"lv":[24,27],"wp":{"v":{"m":"morinoha","x":11,"y":2},"^":{"m":"hyouga","x":11,"y":14}}},"hyouga":{"n":"ヒョウガタウン","sub":"左上:ジム(こおり) / ▲北:ホライゾン山","g":["TTTTTTTTTTT^^TTTTTTTTTTT","T..........dd..........T","T..YYYYYY..dd...RRRR...T","T..YYYYYY..dd...HPHH...T","T..HHDHHH..dd....d.....T","T....d.....dd....d.....T","T....dddddddddddddd....T","T..........dd..........T","T.rrrr.....dd..rrrr....T","T.HDHH.....dd..HDHH....T","T..d.......dd...d......T","T..ddddddddddddddd.....T","T..OO......dd....WWWW..T","T..OO......dd....WWWW..T","T..........dd..........T","TTTTTTTTTTTvvTTTTTTTTTTT"],"an":{"N":[11,2],"pc":[17,4],"gym":[5,5],"S":[11,14]},"npcs":[{"id":"g_h","r":"guard","need":5,"n":"山の番人","txt":"山の番人「ホライゾン山は 聖地。\n5つの バッジを 持つ者だけが\n入山を ゆるされる。」","w":2,"x":11,"y":1},{"id":"s_h","r":"sign","txt":"【ヒョウガタウン】\n雪と 氷に とざされた 北の 町。\n左上の 建物が ヒョウガジム！","x":8,"y":8},{"id":"t_hyo","r":"talk","spr":"npc_blue","n":"登山家","txts":[[0,"登山家「ホライゾン山は 5つの\nバッジが ないと 入れない 聖地だ。」"],[5,"登山家「山頂で 光が 見えた…\nナイトクロウ団が 先に いるかも！」"]],"x":20,"y":9}],"items":[{"id":"it_hyouga_8","x":7,"y":13,"it":"rev","q":2}],"town":true,"theme":"snow","wp":{"v":{"m":"route6","x":9,"y":1},"^":{"m":"peak1","x":9,"y":18}},"doors":[{"x":5,"y":4,"m":"gym5","tx":7,"ty":10}]},"peak1":{"n":"ホライゾン山道","sub":"▼南:ヒョウガ / ▲北:山頂","g":["OOOOOOOOO^^OOOOOOOOO","O........dd........O","O.GGG....dd....GGG.O","O.GGG....dd....GGG.O","OOOOOOOOOddOOOOOOOOO","O........dd........O","O........dd..OOOO..O","O........dd..O..O..O","OOOOO....dd..O..O..O","O...O....dd........O","O.G.O....dd..GGGG..O","O.G......dd..GGGG..O","O.G.O....dd........O","OOOOO....dd........O","O........dd........O","O..GGGG..dd..LLLL..O","O..GGGG..dd........O","O........dd........O","O........dd........O","OOOOOOOOOvvOOOOOOOOO"],"an":{"N":[9,1],"S":[9,18]},"npcs":[{"id":"leon4","r":"npc","spr":"npc_red","n":"ライバル レオン","txt":"レオン「来たな！ 伝説に 会う前に\nおれと 最後の 勝負だ！！」","win":"レオン「…完敗だ。 先に 行け！\nゼクスを 止められるのは おまえだ！」","team":"rival4","dir":"down","sight":0,"vanish":true,"w":2,"x":9,"y":4},{"id":"tr_peak","r":"npc","spr":"npc_purple","n":"エリートトレーナー ジン","txt":"ジン「山頂を めざす 者よ。\nその 資格が あるか ためさせて もらう！」","win":"ジン「見事…！ 行くがいい。」","team":[[33,31],[43,31],[49,32]],"dir":"left","sight":4,"after":"ジン「山頂には ナイトクロウ団の ボスが\nいる。 回復を わすれるな。」","x":14,"y":13},{"id":"s_peak","r":"sign","txt":"【ホライゾン山道】\nこの先 山頂。 伝説の ねむる 地。\n準備を ととのえて すすむべし。","x":13,"y":17}],"items":[{"id":"it_peak1_3","x":3,"y":6,"it":"pot3","q":2},{"id":"it_peak1_4","x":14,"y":7,"it":"hball","q":3}],"theme":"peak","w":[14,16,24,26,45,37,35,49,33,27,50],"lv":[30,34],"wp":{"v":{"m":"hyouga","x":11,"y":2},"^":{"m":"summit","x":7,"y":11}}},"summit":{"n":"ホライゾン山頂","sub":"伝説が ねむる 地","g":["OOOOOOOOOOOOOOOO","OOOOO.X..X.OOOOO","OOOO........OOOO","OOO..........OOO","OO.....dd.....OO","OO.X...dd...X.OO","OOOOOOOddOOOOOOO","OO.....dd.....OO","OO.X...dd...X.OO","OO.....dd.....OO","OOO....dd....OOO","OOOO...dd...OOOO","OOOOOOOvvOOOOOOO"],"an":{"S":[7,11]},"npcs":[{"id":"legend","r":"legend","n":"ホラリオン","x":7,"y":1},{"id":"zex","r":"npc","spr":"npc_dark","n":"ナイトクロウ団ボス ゼクス","txt":"ゼクス「ホラリオンの 力は\nわれら ナイトクロウ団の ものだ！\nジャマするなら たたきつぶす！」","win":"ゼクス「…ばかな。 この わたしが…\nホラリオンは きみに たくそう…」","team":[[24,36],[37,36],[35,37],[50,39]],"dir":"down","sight":0,"vanish":true,"w":2,"x":7,"y":6}],"theme":"peak","wp":{"v":{"m":"peak1","x":9,"y":1}}},"center":{"n":"ケアセンター（室内）","sub":"カウンター:回復 / 左PC:ボックス / 右:ショップ / ▼出口","g":["HHHHHHHHHHHHHHHH","HF....dddd....FH","H.....dddd.....H","HKKMMMMMMMMMMMMH","H..............H","H....dddddd....H","H....dddddd....H","H......dd......H","H......EE......H","HHHHHHHHHHHHHHHH"],"an":{"in":[7,7]},"npcs":[{"id":"nurse","r":"nurse","n":"ケアスタッフ ミナ","x":7,"y":2},{"id":"shop","r":"shop","spr":"npc_blue","n":"ショップ店員","x":13,"y":6}],"indoor":true,"floor":"center","wp":{}},"gym1":{"n":"クオーツジム","sub":"いちばん おくに マスター / ▼出口","g":["HHHHHHHHHHHHHHHH","H......X.X.....H","H..............H","H.OOOO....OOOO.H","H..............H","H....OOOOOO....H","H..............H","H.OOOO....OOOO.H","H..............H","H......dd......H","H......dE......H","HHHHHHHHHHHHHHHH"],"an":{"in":[7,10]},"npcs":[{"id":"garon","r":"npc","spr":"npc_purple","n":"クオーツマスター ガロン","txt":"ガロン「クオーツジムの マスター\nガロンだ！ かたい いわの ちからで\n全力勝負だぜ！！」","win":"ガロン「見事だ！ きみこそ\nクオーツバッジに ふさわしい！」","team":[[13,7],[32,8],[14,10]],"dir":"down","sight":0,"gym":1,"x":8,"y":1},{"id":"gt1","r":"npc","spr":"npc_yellow","n":"ジムトレーナー イワオ","txt":"イワオ「マスターに いどむ 前に\nまずは おれが 相手だ！」","win":"イワオ「かたい 守りが くずされた…！」","team":[[13,6],[32,6]],"dir":"right","sight":5,"after":"イワオ「ガロンさんの エースは\nガンセキオン。 とにかく かたいぞ。」","x":2,"y":6}],"indoor":true,"floor":"rock","song":"gym","wp":{},"exit":{"m":"quartz","x":18,"y":4}},"gym2":{"n":"ミナモジム","sub":"いちばん おくに マスター / ▼出口","g":["HHHHHHHHHHHHHHHH","H......X.X.....H","H..............H","HWWWWWWWWWWbWWWH","HWWWWWWWWWWbWWWH","H..............H","H..............H","HWWWbWWWWWWWWWWH","HWWWbWWWWWWWWWWH","H..............H","H......dE......H","HHHHHHHHHHHHHHHH"],"an":{"in":[7,10]},"npcs":[{"id":"marin","r":"npc","spr":"npc_blue","n":"ミナモマスター マリン","txt":"マリン「ミナモジムの マリンよ。\nしなやかな 水の 力、\nうけとめられるかしら？」","win":"マリン「すてき！ ミナモバッジを\nどうぞ うけとって。」","team":[[17,16],[41,16],[18,19]],"dir":"down","sight":0,"gym":2,"x":8,"y":1},{"id":"gt2","r":"npc","spr":"npc_purple","n":"ジムトレーナー シズク","txt":"シズク「橋を わたる 前に\nわたしと 勝負よ！」","win":"シズク「ながされちゃった…」","team":[[41,14],[17,15]],"dir":"right","sight":6,"after":"シズク「マリンさんの ジェリクインは\nでんきの わざも つかうの。 油断しないで。」","x":3,"y":6}],"indoor":true,"floor":"water","song":"gym","wp":{},"exit":{"m":"minamo","x":21,"y":5}},"gym3":{"n":"ライデンジム","sub":"いちばん おくに マスター / ▼出口","g":["HHHHHHHHHHHHHHHH","H......X.X.....H","H..............H","H.XXXXXXXXXXX..H","H..............H","H..XXXXXXXXXXX.H","H..............H","H.XXXXXXXXXXX..H","H..............H","H......dd......H","H......dE......H","HHHHHHHHHHHHHHHH"],"an":{"in":[7,10]},"npcs":[{"id":"volt","r":"npc","spr":"npc_yellow","n":"ライデンマスター ボルト","txt":"ボルト「ライデンジムの ボルトだ！\nしびれる バトルを はじめようぜ！」","win":"ボルト「ビリッときたぜ！\nライデンバッジを もっていけ！」","team":[[19,20],[20,22],[8,24]],"dir":"down","sight":0,"gym":3,"x":8,"y":1},{"id":"gt3","r":"npc","spr":"npc_green","n":"ジムトレーナー ライタ","txt":"ライタ「ビリビリ いくぜ！」","win":"ライタ「ていでん…！」","team":[[19,19],[4,20]],"dir":"right","sight":6,"after":"ライタ「ボルトさんの ボルタリスは\nとにかく はやい。 先に うたれるぞ。」","x":2,"y":6}],"indoor":true,"floor":"elec","song":"gym","wp":{},"exit":{"m":"raiden","x":5,"y":4}},"gym4":{"n":"モリノハジム","sub":"いちばん おくに マスター / ▼出口","g":["HHHHHHHHHHHHHHHH","H......X.X.....H","H..............H","H.TTTTTT.TTTTT.H","H.T..........T.H","H.T.TTTTTTTT.T.H","H.T.T......T.T.H","H.T.T......T.T.H","H...TTTT.TTT...H","H......dd......H","H......dE......H","HHHHHHHHHHHHHHHH"],"an":{"in":[7,10]},"npcs":[{"id":"leaf","r":"npc","spr":"npc_green","n":"モリノハマスター リーフ","txt":"リーフ「モリノハジムの リーフです。\n森の いのちの 力を\n感じてください！」","win":"リーフ「すばらしい きずなです。\nモリノハバッジを どうぞ。」","team":[[46,28],[7,29],[22,31]],"dir":"down","sight":0,"gym":4,"x":8,"y":1},{"id":"gt4","r":"npc","spr":"npc_purple","n":"ジムトレーナー モエ","txt":"モエ「まよいこんだわね？\nここは 行きどまりよ！ 勝負！」","win":"モエ「あらら…」","team":[[46,25],[21,26]],"dir":"right","sight":4,"after":"モエ「マスターへの 道は 外がわの 通路よ。\n左から ぐるっと まわってね。」","x":6,"y":6}],"indoor":true,"floor":"grass","song":"gym","wp":{},"exit":{"m":"morinoha","x":18,"y":5}},"gym5":{"n":"ヒョウガジム","sub":"いちばん おくに マスター / ▼出口","g":["HHHHHHHHHHHHHHHH","H......X.X.....H","H.OO........OO.H","H.OO..OOOO..OO.H","H..............H","H.OOOOO..OOOOO.H","H..............H","H.OO..OOOO..OO.H","H..............H","H......dd......H","H......dE......H","HHHHHHHHHHHHHHHH"],"an":{"in":[7,10]},"npcs":[{"id":"yukino","r":"npc","spr":"npc_white","n":"ヒョウガマスター ユキノ","txt":"ユキノ「ヒョウガジムの ユキノよ。\nこおりの 世界で こごえなさい！」","win":"ユキノ「…あたたかい 心ね。\nヒョウガバッジを わたすわ。」","team":[[45,32],[16,34],[26,36]],"dir":"down","sight":0,"gym":5,"x":8,"y":1},{"id":"gt5","r":"npc","spr":"npc_blue","n":"ジムトレーナー コオリ","txt":"コオリ「ここから 先は 氷点下よ！」","win":"コオリ「とけちゃった…」","team":[[44,29],[25,30]],"dir":"right","sight":6,"after":"コオリ「ユキノさまの エンペギンは\nみずの わざも つかうわ。」","x":3,"y":6}],"indoor":true,"floor":"ice","song":"gym","wp":{},"exit":{"m":"hyouga","x":5,"y":5}}};
+
+// === どうぐ・図鑑 ===
+const ITEMS = {
+  ball:{n:'キャプチャーカプセル', ic:'🔴', price:200, kind:'ball', rate:1, need:0, d:'モンスターを つかまえる'},
+  sball:{n:'スーパーカプセル', ic:'🔵', price:600, kind:'ball', rate:1.5, need:1, d:'つかまえやすさ ×1.5'},
+  hball:{n:'ハイパーカプセル', ic:'🟡', price:1200, kind:'ball', rate:2.2, need:3, d:'つかまえやすさ ×2.2'},
+  pot:{n:'回復ドリンク', ic:'🧪', price:300, kind:'heal', v:30, need:0, d:'HPを 30 回復'},
+  pot2:{n:'いいドリンク', ic:'🧃', price:700, kind:'heal', v:80, need:1, d:'HPを 80 回復'},
+  pot3:{n:'まんたんドリンク', ic:'🍶', price:1500, kind:'heal', v:9999, need:3, d:'HPを ぜんかい'},
+  rev:{n:'げんきのタネ', ic:'🌱', price:1200, kind:'revive', need:2, d:'たおれた モンスターを HP半分で 復活'}
+};
+const DEX = {
+  1:'しっぽの 炎で 気分が わかる。 おこると 炎が 青くなる。', 2:'こうらの 中に 水を ためこみ、ピンチの ときに いきおいよく ふきだす。',
+  3:'頭の つぼみに 日光を あつめる。 晴れの日は とても 元気。', 4:'ほっぺで 電気を つくる。 すばしっこくて つかまえにくい。',
+  5:'口から はく 炎は 岩をも とかす。 たたかうほど 熱くなる。', 6:'こうらの 砲口から 水流を うちだす。 海の 守り神と よばれる。',
+  7:'背中の 花が さくと 森じゅうに 甘い 香りが ひろがる。', 8:'体内の クリスタルで 雷を ためる。 夜空を 光の 速さで かける。',
+  9:'どこにでも いる 元気な ネズミ。 なんでも かじって しまう。', 10:'するどい ツメで 岩も けずる。 なわばり意識が つよい。',
+  11:'小さな つばさで 風に のる。 群れで にぎやかに くらす。', 12:'空高く から 急降下して えものを ねらう。 目が とても いい。',
+  13:'転がって 移動する 小石の モンスター。 ねぼすけ。', 14:'全身が 岩で できている。 体当たりで 山道を ひらく。',
+  15:'雪の 日に ふわふわ うかぶ。 さわると ひんやり 冷たい。', 16:'こおりの たてがみを もつ。 吹雪の 中を 自在に かける。',
+  17:'波間を ただよう クラゲ。 ふれると ピリッと しびれる。', 18:'海の 女王。 しょっかくの 光で 群れを みちびく。',
+  19:'電線の 近くに あつまる 虫。 しっぽが ピカピカ 光る。', 20:'甲羅に 発電器官を もつ。 ライデンの 発電所に すみつく。',
+  21:'土の 中で くらし、頭の 花で 地上の ようすを さぐる。', 22:'大きな 花の かんむりを もつ。 森の 地面を たがやす。',
+  23:'くらい 洞くつで 小さな 炎を ともして とぶ。', 24:'炎の つばさで 夜空を こがす。 ひとなつっこい 一面も。',
+  25:'氷の上を おなかで すべる。 よちよち 歩きが かわいい。', 26:'王冠の ような とさかを もつ。 吹雪にも びくとも しない。',
+  27:'山頂で まれに 見つかる 結晶の 生命体。 光を 吸って いきる。', 28:'地平線の かなたから 来たという 伝説の モンスター。 夜明けの 空を はばたく。',
+  29:'つばさを 得た 炎の 竜。 はく 息は 夜空を 昼のように てらす。', 30:'こうらの 大砲から うつ 水流は 岩山を うがつ。 海流を あやつる。',
+  31:'背中の 大輪の 花は 百年 かれない。 歩いた あとに 草花が めばえる。', 32:'するどい ツメで 土を ほる。 はたけを たがやして くれる ことも。',
+  33:'頭の ドリルで 岩盤も ほりぬく。 洞くつの 道は こいつが つくった。', 34:'砂の 中に もぐって えものを まつ。 砂浜の 足あとに 注意。',
+  35:'大きな フードを ひろげて いかくする。 砂あらしを よぶと いう。', 36:'くらがりに ひそむ いたずら者。 光を あてると にげていく。',
+  37:'月の ない 夜に あらわれる かげの 主。 その姿を 見た者は 少ない。', 38:'雲の ように ふわふわ うかぶ。 さわると ぱちっと 静電気。',
+  39:'葉っぱを たべて すぐに 大きく なる。 しんかが とても 早い。', 40:'りんぷんを まいて とぶ。 夜の 街灯に よく あつまる。',
+  41:'海辺で ぴちぴち はねる。 見かけに よらず 根性が ある。', 42:'滝を のぼりきった コイッチの 姿。 ひげは 天気を 読む。',
+  43:'雷雲を まとった ひつじ。 つのに 雷を ためて 突進する。', 44:'雪の 上を はねまわる。 耳で 吹雪の おとずれを 知る。',
+  45:'氷の たてがみを なびかせ 雪原を かける。 とても 足が 速い。', 46:'森の しめった 場所に はえる。 かさの ほうしで 身を まもる。',
+  47:'森の 長老と よばれる 大キノコ。 かげを あやつる ふしぎな 力を もつ。', 48:'あまい ものが 大好き。 木に のぼって はちみつを さがす。',
+  49:'山の 主。 一撃で 大岩を くだく 力もち。 子どもには やさしい。', 50:'夜の 空を 支配する 大ガラス。 ナイトクロウ団の 名の 由来。'
+};
+const WARP_TOWNS = [['kotonoha','🏠'],['soyokaze','🍃'],['quartz','💎'],['minamo','🌊'],['raiden','⚡'],['morinoha','🌳'],['hyouga','❄️']];
+const SOLID_OUT = 'TWRrYHOBXL', SOLID_IN = 'HFKMkXOWT';
+const mapW = (m) => m.g[0].length, mapH = (m) => m.g.length;
+const doorAt = (m, x, y) => (m.doors || []).find(d => d.x === x && d.y === y);
+function tileSolid(m, x, y) {
+  const t = m.g[y][x];
+  if (t === 'D' || t === 'C') return !doorAt(m, x, y);
+  return (m.indoor ? SOLID_IN : SOLID_OUT).includes(t);
+}
+const townFront = (id) => { const a = MAPS[id].an.pc; return {m:id, x:a[0], y:a[1]}; };
+const DIRV = {up:[0,-1], down:[0,1], left:[-1,0], right:[1,0]};
+
+
+// === 描画キャッシュ ===
+const cvs = document.getElementById('gameCanvas'), ctx = cvs.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+const SPR = {};
+function buildSprite(mat, scale, flip = false) {
+  const c = document.createElement('canvas');
+  c.width = 16 * scale; c.height = 16 * scale;
+  if (!mat) return c;
+  const cx = c.getContext('2d');
+  for (let r = 0; r < 16; r++) {
+    const row = mat[r] || '';
+    for (let col = 0; col < 16; col++) {
+      const ch = row[col];
+      if (ch && PAL[ch]) { cx.fillStyle = PAL[ch]; cx.fillRect((flip ? 15 - col : col) * scale, r * scale, scale, scale); }
+    }
+  }
+  return c;
+}
+function initSprites() {
+  Object.keys(MON_SPRITES).forEach(id => {
+    SPR['m_f_' + id] = buildSprite(MON_SPRITES[id].front, 4);
+    SPR['m_b_' + id] = buildSprite(MON_SPRITES[id].back, 4);
+    SPR['m_s_' + id] = buildSprite(MON_SPRITES[id].front, 1);
+  });
+  Object.keys(TILE_MATS).forEach(k => { SPR['t_' + k] = buildSprite(TILE_MATS[k], 1); });
+  SPR.t_player_down = SPR.t_player;
+  SPR.t_player_left = buildSprite(TILE_MATS.player_right, 1, true);
+  Object.keys(TILE_MATS).filter(k => /^npc.*_right$/.test(k)).forEach(k => { SPR['t_' + k.replace('_right', '_left')] = buildSprite(TILE_MATS[k], 1, true); });
+}
+const monImg = (id) => `<img src="${SPR['m_f_' + id].toDataURL()}" alt="">`;
+
+// === 状態 ===
+let st = 'TITLE', mapId = 'kotonoha', lastTown = {m:'kotonoha'}, alertNpc = null, hop = false, camOx = 0, camOy = 0;
+let tick = 0, msgCb = null, bat = null, memSave = null, trans = null, evoSt = null;
+const newBag = () => ({ball:5, sball:0, hball:0, pot:3, pot2:0, pot3:0, rev:0});
+let pl = {x:7, y:5, dir:'down', party:[], box:[], bag:newBag(), def:{}, starter:1, badges:0, vis:{kotonoha:1}, money:3000, dex:{}};
+const markSeen = (id) => { if (!pl.dex[id]) pl.dex[id] = 1; };
+const markCaught = (id) => { pl.dex[id] = 2; };
+const dexCount = (lv) => Object.values(pl.dex).filter(v => v >= lv).length;
+function updMoney() { $('money').textContent = st === 'TITLE' ? '' : `💰${pl.money}`; }
+let rx = 7, ry = 5, isMoving = false, moveFrom = null, moveTarget = null, moveProg = 0, bumpKey = null;
+const KEYS = {up:false, down:false, left:false, right:false};
+const clearKeys = () => { KEYS.up = KEYS.down = KEYS.left = KEYS.right = false; };
+const $ = (id) => document.getElementById(id);
+const modalOpen = () => !$('modal-ui').classList.contains('hide');
+const P = () => pl.party[bat.pIdx];
+
+const buzz = (ms) => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} };
+function tap(id, fn) {
+  const el = typeof id === 'string' ? $(id) : id;
+  if (el) el.addEventListener('click', (e) => { e.preventDefault(); startAudio(); buzz(8); fn(e); });
+}
+const SAVE_KEY = 'pk_hz_16c_save';
+function setSaveStr(s) { memSave = s; try { localStorage.setItem(SAVE_KEY, s); } catch (e) {} }
+// 自動セーブ：マップ移動・バトル後・回復・買い物・アプリを閉じるときに この端末へ保存
+function autoSave() {
+  if (st !== 'MAP' || !pl.party.length || isMoving) return;
+  try { setSaveStr(serialize()); } catch (e) {}
+}
+let wakeLock = null;
+async function keepAwake() { // プレイ中は 画面が 暗くならないようにする（対応ブラウザのみ）
+  try {
+    if ('wakeLock' in navigator && !wakeLock && !document.hidden) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  } catch (e) {}
+}
+function getSaveStr() { try { return localStorage.getItem(SAVE_KEY) || memSave; } catch (e) { return memSave; } }
+
+// === サウンド（オリジナル楽曲・矩形波チップチューン） ===
+let aCtx = null, muted = false, song = null, songIdx = 0, songNext = 0;
+const NOTE = (n) => { if (n === '-') return 0; const m = n.match(/^([A-G])(#?)(\d)$/); const s = {C:0,D:2,E:4,F:5,G:7,A:9,B:11}[m[1]] + (m[2] ? 1 : 0); return 440 * Math.pow(2, (s + (+m[3] + 1) * 12 - 69) / 12); };
+const parse = (s) => s.replace(/\|/g, ' ').trim().split(/\s+/).map(NOTE);
+const SONGS = {
+  title:{bpm:112, lead:parse('G4 C5 E5 G5 - E5 C5 E5 | F5 - A5 - G5 - E5 - | D5 E5 F5 D5 E5 C5 D5 B4 | C5 - G4 - C5 - - -'), bass:parse('C3 - G2 - C3 - G2 - | F2 - C3 - C3 - G2 - | G2 - D3 - C3 - A2 - | G2 - G2 - C3 - - -')},
+  field:{bpm:132, lead:parse('E5 G5 C6 G5 A5 G5 E5 D5 | C5 E5 G5 E5 F5 E5 D5 - | E5 G5 C6 D6 E6 D6 C6 A5 | G5 F5 E5 D5 C5 - - -'), bass:parse('C3 - G3 - C3 - G3 - | F2 - C3 - G2 - B2 - | A2 - E3 - F2 - C3 - | G2 - G2 - C3 - G2 -')},
+  battle:{bpm:170, lead:parse('A4 A4 C5 A4 E5 A4 D5 C5 | A4 A4 C5 A4 F5 E5 D5 B4 | G4 G4 B4 G4 D5 G4 C5 B4 | E5 - D5 - C5 - B4 G#4'), bass:parse('A2 A3 A2 A3 A2 A3 A2 A3 | F2 F3 F2 F3 F2 F3 F2 F3 | G2 G3 G2 G3 G2 G3 G2 G3 | E2 E3 E2 E3 E2 E3 E2 E3')},
+  gym:{bpm:150, lead:parse('D5 - D5 F5 A5 - G5 F5 | E5 - E5 G5 A#5 - A5 G5 | F5 - F5 A5 D6 - C6 A#5 | A5 - G5 - F5 E5 D5 -'), bass:parse('D3 D3 A2 A2 D3 D3 A2 A2 | C3 C3 G2 G2 C3 C3 G2 G2 | A#2 A#2 F2 F2 A#2 A#2 F2 F2 | A2 A2 A2 A2 D3 - D3 -')},
+  cave:{bpm:96, lead:parse('E4 - G4 - B4 - G4 - | D4 - F#4 - A4 - F#4 - | C4 - E4 - G4 - E4 - | B3 - D#4 - F#4 - - -'), bass:parse('E2 - - - E2 - - - | D2 - - - D2 - - - | C2 - - - C2 - - - | B1 - - - B1 - - -')},
+  center:{bpm:100, lead:parse('C5 E5 G5 E5 F5 A5 G5 - | E5 G5 C6 B5 A5 - G5 - | F5 A5 G5 E5 D5 F5 E5 C5 | D5 - G4 - C5 - - -'), bass:parse('C3 - E3 - F2 - G2 - | C3 - E3 - F2 - C3 - | F2 - C3 - G2 - A2 - | G2 - G2 - C3 - - -')}
+};
+function startAudio() {
+  try {
+    if (!aCtx) {
+      aCtx = new (window.AudioContext || window.webkitAudioContext)();
+      setInterval(schedSong, 40);
+    }
+    if (aCtx.state !== 'running') aCtx.resume();
+  } catch (e) {}
+  keepAwake();
+}
+function tone(f, t0, dur, type, vol) {
+  if (!f) return;
+  const o = aCtx.createOscillator(), g = aCtx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t0);
+  g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
+  o.connect(g); g.connect(aCtx.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+}
+function playSong(name) {
+  if (song === name) return;
+  song = name; songIdx = 0; songNext = aCtx ? aCtx.currentTime + 0.08 : 0;
+}
+function schedSong() {
+  if (!aCtx || !song || !SONGS[song]) return;
+  const S = SONGS[song], u = 60 / S.bpm / 2;
+  if (songNext < aCtx.currentTime - 0.5) songNext = aCtx.currentTime + 0.05;
+  while (songNext < aCtx.currentTime + 0.2) {
+    if (!muted) {
+      tone(S.lead[songIdx % S.lead.length], songNext, u * 0.9, 'square', 0.03);
+      tone(S.bass[songIdx % S.bass.length], songNext, u * 0.95, 'triangle', 0.07);
+    }
+    songIdx++; songNext += u;
+  }
+}
+function sfx(f, d = 0.08, type = 'square') {
+  if (muted || !aCtx) return;
+  try { tone(f, aCtx.currentTime, d, type, 0.07); } catch (e) {}
+}
+function jingle(notes, step = 0.1) {
+  if (muted || !aCtx) return;
+  notes.forEach((n, i) => tone(NOTE(n), aCtx.currentTime + i * step, step * 1.6, 'square', 0.06));
+}
+const blip = () => sfx(1200, 0.02);
+
+// === モンスター生成・成長 ===
+function calcStats(p, keepRatio = true) {
+  const b = MONS[p.id], r = keepRatio && p.mhp ? p.hp / p.mhp : 1;
+  p.mhp = b.hp + p.lv * 3; p.a = b.a + p.lv * 2; p.d = b.d + p.lv; p.s = b.s + p.lv;
+  p.hp = r <= 0 ? 0 : Math.max(1, Math.round(p.mhp * r));
+}
+function mkMon(id, lv) {
+  const b = MONS[id];
+  const p = {id:+id, n:b.n, t:b.t, lv, exp:0, m:movesAt(id, lv)};
+  calcStats(p, false); return p;
+}
+const movesAt = (id, lv) => MONS[id].ls.filter(x => x[1] <= lv).map(x => x[0]).slice(-4);
+const expNeed = (p) => p.lv * 15;
+function gainExp(pm, amt) {
+  const out = [`${pm.n}は ${amt} けいけんちを もらった！`];
+  pm.exp += amt;
+  while (pm.exp >= expNeed(pm) && pm.lv < 100) {
+    pm.exp -= expNeed(pm);
+    const old = pm.mhp; pm.lv++;
+    const b = MONS[pm.id];
+    pm.mhp = b.hp + pm.lv * 3; pm.a = b.a + pm.lv * 2; pm.d = b.d + pm.lv; pm.s = b.s + pm.lv;
+    pm.hp = Math.min(pm.mhp, pm.hp + (pm.mhp - old));
+    out.push(`${pm.n}は レベル${pm.lv}に あがった！`);
+    b.ls.forEach(([k, l]) => {
+      if (l === pm.lv && !pm.m.includes(k)) {
+        let forgot = '';
+        if (pm.m.length >= 4) { // いちばん弱い わざを わすれる
+          let wi = 0; pm.m.forEach((mk, ix) => { if (MOVES[mk].p < MOVES[pm.m[wi]].p) wi = ix; });
+          if (MOVES[pm.m[wi]].p >= MOVES[k].p) return;
+          forgot = MOVES[pm.m[wi]].n; pm.m.splice(wi, 1);
+        }
+        pm.m.push(k); out.push(`${pm.n}は ${forgot ? forgot + 'を わすれて\n' : 'あたらしく\n'}${MOVES[k].n}を おぼえた！`);
+      }
+    });
+  }
+  return out;
+}
+const canEvolve = (p) => p.hp > 0 && MONS[p.id].evo && p.lv >= (MONS[p.id].el || 16);
+
+// === メッセージ（文字送り） ===
+let msgFull = '', msgPos = 0;
+function showPane(which) {
+  ['pane-msg', 'pane-cmd', 'pane-moves'].forEach(id => $(id).classList.toggle('hide', id !== which));
+  navIdx = 0; navRender();
+}
+function showMsg(txt, cb = null) {
+  showPane('pane-msg');
+  msgFull = txt; msgPos = 0; $('msg-txt').textContent = ''; msgCb = cb;
+  $('msg-caret').style.display = 'none';
+}
+function updMsg() {
+  if (msgPos < msgFull.length) {
+    const prev = Math.floor(msgPos);
+    msgPos = Math.min(msgFull.length, msgPos + 1.2);
+    const cur = Math.floor(msgPos);
+    if (cur !== prev) { $('msg-txt').textContent = msgFull.slice(0, cur); if (cur % 4 === 0) blip(); }
+  }
+  $('msg-caret').style.display = (msgPos >= msgFull.length && msgCb) ? 'inline' : 'none';
+}
+const typing = () => msgPos < msgFull.length;
+function runMsgs(list, done) {
+  if (!list.length) { done && done(); return; }
+  showMsg(list[0], () => runMsgs(list.slice(1), done));
+}
+
+// === モーダル ===
+function showModal(title, desc, items, closeable = true, extraHtml = '', cls = '') {
+  $('m-title').textContent = title;
+  $('m-desc').textContent = desc || '';
+  $('m-close').classList.toggle('hide', !closeable);
+  $('modal-ui').className = 'modal-bg' + (cls ? ' ' + cls : '');
+  const ex = $('m-extra');
+  ex.innerHTML = extraHtml || ''; ex.classList.toggle('hide', !extraHtml);
+  const lst = $('m-list'); lst.innerHTML = '';
+  items.forEach(it => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'mbtn';
+    if (it.dis) b.disabled = true;
+    b.innerHTML = `<span>${it.l}</span><span class="sub">${it.s || ''}</span>`;
+    tap(b, () => { if (!b.disabled) { sfx(880, 0.05); it.fn(); } });
+    lst.appendChild(b);
+  });
+  $('modal-ui').classList.remove('hide');
+  if (!navKeep) { navIdx = 0; lst.scrollTop = 0; }
+  navKeep = false; navRender();
+}
+function closeModal() { $('modal-ui').classList.add('hide'); navIdx = 0; navRender(); }
+
+// === キー/十字キーでの選択操作 ===
+let navIdx = 0, navKeep = false, navHeld = null, navT = 0;
+function navCtx() {
+  if (modalOpen()) { const els = [...document.querySelectorAll('#m-list .mbtn')]; return els.length ? {type:'list', els} : null; }
+  if (!$('pane-cmd').classList.contains('hide')) return {type:'grid', els:[0, 1, 2, 3].map(i => $('c' + i))};
+  if (!$('pane-moves').classList.contains('hide')) return {type:'grid', els:[0, 1, 2, 3].map(i => $('m' + i))};
+  return null;
+}
+function navRender() {
+  document.querySelectorAll('.sel').forEach(e => e.classList.remove('sel'));
+  const c = navCtx(); if (!c) return;
+  navIdx = Math.max(0, Math.min(navIdx, c.els.length - 1));
+  if (c.els[navIdx].disabled) { const j = c.els.findIndex(e => !e.disabled); if (j >= 0) navIdx = j; }
+  const el = c.els[navIdx]; el.classList.add('sel');
+  if (c.type === 'list') el.scrollIntoView({block:'nearest'});
+}
+function navMove(dir) {
+  const c = navCtx(); if (!c) return false;
+  const n = c.els.length;
+  if (c.type === 'list') {
+    const d = (dir === 'up' || dir === 'left') ? -1 : 1;
+    let j = navIdx;
+    for (let k = 0; k < n; k++) { j = (j + d + n) % n; if (!c.els[j].disabled) break; }
+    navIdx = j;
+  } else {
+    const j = (dir === 'up' || dir === 'down') ? navIdx ^ 2 : navIdx ^ 1;
+    if (c.els[j] && !c.els[j].disabled) navIdx = j;
+  }
+  sfx(1100, 0.02); navRender(); return true;
+}
+function navConfirm() {
+  const c = navCtx(); if (!c) return false;
+  const el = c.els[navIdx]; if (el && !el.disabled) el.click();
+  return true;
+}
+function updHeader() {
+  $('loc-name').textContent = `📍 ${MAPS[mapId].n}${pl.badges ? ` 🏅${pl.badges}` : ''}`;
+  $('loc-sub').textContent = MAPS[mapId].sub; updMoney();
+  if (st === 'MAP') { const m = MAPS[mapId]; playSong(m.song || (m.indoor ? 'center' : m.theme === 'cave' ? 'cave' : 'field')); }
+}
+const typeTag = (t) => `<span class="tb" style="background:${TYPE_COL[t] || '#687078'}">${t}</span>`;
+const hpCol = (r) => r > 0.5 ? '#38b838' : r > 0.2 ? '#e8b000' : '#e82818';
+const hpBar = (p) => { const r = p.hp / p.mhp; return `<span class="hpb"><i style="width:${Math.round(r * 100)}%;background:${hpCol(r)}"></i></span>`; };
+
+// === タイトル・はじめから・セーブ/ロード ===
+async function openTitle() {
+  st = 'TITLE';
+  const hasSave = !!getSaveStr();
+  const newGame = () => {
+    if (!getSaveStr()) { openStarter(); return; }
+    showModal('⚠️ セーブデータが あります', 'さいしょから はじめると、今の データは\n自動セーブで 上書きされます。\n残したい ときは「つづきから」→ メニュー → セーブ →\nセーブコードを コピー して 控えて ください。', [
+      {l:'↩ やめる', s:'', fn:openTitle},
+      {l:'▶ さいしょから はじめる', s:'上書きする', fn:openStarter}
+    ], false, '', 'title');
+  };
+  const items = hasSave ? [{l:'▶ つづきから', s:'この端末のデータ', fn:() => loadFromStr(getSaveStr())}, {l:'▶ さいしょから はじめる', s:'パートナーを選ぶ', fn:newGame}]
+                        : [{l:'▶ さいしょから はじめる', s:'パートナーを選ぶ', fn:newGame}];
+  items.push({l:'🔑 セーブコードで つづきから', s:'コード入力', fn:openCodeLoadModal});
+  showModal('PIXEL HORIZON', '', items, false, '', 'title');
+  showMsg('ようこそ！ モンスターと いっしょに\n冒険へ でかけよう！');
+  playSong('title');
+  titleItems = items; addCloudTitle();
+}
+let titleItems = null, cloudAdded = false;
+async function addCloudTitle() {
+  if (!window.cloudReady || !window.safeLoadCloud || cloudAdded) return;
+  const cloud = await window.safeLoadCloud();
+  if (cloud && st === 'TITLE' && titleItems && !cloudAdded && $('m-title').textContent === 'PIXEL HORIZON') {
+    cloudAdded = true;
+    titleItems.splice(2, 0, {l:'☁️ つづきから (クラウド)', s:'クラウドのデータ', fn:() => loadFromStr(cloud)});
+    showModal('PIXEL HORIZON', '', titleItems, false, '', 'title');
+  }
+}
+window.addEventListener('cloud-ready', addCloudTitle);
+function openStarter() {
+  playSong('title');
+  showModal('ハルカ博士の研究所', '最初の パートナーを 1匹 えらぼう！', [1, 2, 3].map(id => ({
+    l:`${monImg(id)}${TYPE_ICON[MONS[id].t]} ${MONS[id].n}`, s:MONS[id].desc, fn:() => startNewGame(id)
+  })).concat([{l:'↩ もどる', s:'', fn:openTitle}]), false);
+}
+function startNewGame(id) {
+  pl = {x:7, y:5, dir:'up', party:[mkMon(id, 5)], box:[], bag:newBag(), def:{}, starter:id, badges:0, vis:{kotonoha:1}, money:3000, dex:{}};
+  [1, 2, 3].forEach(markSeen); markCaught(id);
+  lastTown = {m:'kotonoha'};
+  const a = MAPS.lab.an.start;
+  closeModal(); st = 'MAP'; warpTo('lab', a[0], a[1]); jingle(['C5','E5','G5','C6'], 0.1);
+  runMsgs([`ハルカ博士から ${MONS[id].n}を もらった！`,
+    'ハルカ博士「地平線の 先の ホライゾン山には\n伝説の モンスターが ねむるという。」',
+    'ハルカ博士「5つの ジムで バッジを 集めれば\n山への 道が ひらかれる。 さあ 行くのじゃ！」',
+    '移動:十字キー/WASD　しらべる:A　メニュー:B\n下の 出口(▼)から 外へ 出て、北を めざそう！'], null);
+}
+function serialize() {
+  return JSON.stringify({v:3, m:mapId, x:pl.x, y:pl.y, dir:pl.dir, lt:lastTown, p:pl.party, bx:pl.box, b:pl.bag, d:pl.def, sv:pl.starter, bg:pl.badges, vs:pl.vis, mo:pl.money, dx:pl.dex});
+}
+function openSaveModal() {
+  if (st !== 'MAP' || msgCb || isMoving) return;
+  const raw = serialize();
+  const code = btoa(unescape(encodeURIComponent(raw)));
+  const items = [];
+  items.push({l:'📱 この端末に セーブ', s:'リロードしても残る', fn:() => {
+    setSaveStr(raw); closeModal(); jingle(['C5','G5','C6'], 0.08); showMsg('この端末に 冒険の記録を のこしました！');
+  }});
+  if (window.cloudReady) items.push({l:'☁️ クラウドに セーブ', s:'別端末でも遊べる', fn:async () => {
+    const ok = await window.safeSaveCloud(raw);
+    closeModal(); if (ok) jingle(['C5','G5','C6'], 0.08);
+    showMsg(ok ? 'クラウドに 冒険の記録を のこしました！' : 'クラウド通信に 失敗しました。\n端末セーブを お試しください。');
+  }});
+  items.push({l:'📋 セーブコードを コピー', s:'端末にも保存', fn:async () => {
+    let ok = false;
+    try { await navigator.clipboard.writeText(code); ok = true; } catch (e) {
+      const inp = $('save-code-box'); if (inp) { inp.select(); try { ok = document.execCommand('copy'); } catch (e2) {} }
+    }
+    setSaveStr(raw); closeModal(); jingle(['C5','G5','C6'], 0.08);
+    showMsg(ok ? 'セーブコードを コピーしました！\n（端末にも 保存済み）' : 'コピーできませんでした。\n枠内の コードを 手動で コピーしてください。');
+  }});
+  items.push({l:'↩ メニューへ', s:'', fn:openMenu});
+  showModal('💾 セーブ', '自動セーブ：マップ移動・バトル後・回復時などに\nこの端末へ 自動で 保存されます。', items, true, `<input id="save-code-box" class="code-in" readonly value="${code}">`);
+}
+function openCodeLoadModal() {
+  showModal('🔑 セーブコード入力', 'コピーした セーブコードを 貼り付けてください', [
+    {l:'▶ このコードで 再開する', s:'', fn:() => {
+      const v = ($('load-code-box') || {}).value || '';
+      try { loadFromStr(decodeURIComponent(escape(atob(v.trim())))); }
+      catch (e) { showMsg('コードが 正しくありません。'); }
+    }},
+    {l:'↩ タイトルへ もどる', s:'', fn:openTitle}
+  ], false, `<input id="load-code-box" class="code-in" placeholder="ここに セーブコードを 貼り付け">`);
+}
+function fixMon(p) {
+  if (!p || !MONS[p.id]) return null;
+  const b = MONS[p.id];
+  const q = {id:+p.id, n:b.n, t:b.t, lv:Math.max(1, Math.min(100, p.lv | 0 || 1)), exp:Math.max(0, p.exp | 0), m:(p.m || []).filter(k => MOVES[k]).slice(0, 4)};
+  if (!q.m.length) q.m = mkMon(q.id, q.lv).m;
+  q.mhp = p.mhp || 1; q.hp = Math.max(0, Math.min(q.mhp, p.hp ?? q.mhp));
+  calcStats(q, true); return q;
+}
+function loadFromStr(raw) {
+  if (!raw) return;
+  try {
+    const d = JSON.parse(raw);
+    const party = (d.p || []).map(fixMon).filter(Boolean);
+    if (!party.length) throw new Error('empty');
+    const old = (d.v | 0) < 3;
+    lastTown = {m:(d.lt && MAPS[d.lt.m] && MAPS[d.lt.m].town) ? d.lt.m : 'kotonoha'};
+    mapId = MAPS[d.m] ? d.m : lastTown.m;
+    if (d.d && d.d.garon && !(d.bg > 1)) d.bg = 1;
+    pl = {x:d.x ?? 7, y:d.y ?? 5, dir:d.dir || 'down', party, box:(d.bx || []).map(fixMon).filter(Boolean),
+          bag:Object.assign(newBag(), d.b || {}), def:d.d || {}, starter:d.sv || party[0].id, badges:d.bg || 0, vis:d.vs || {kotonoha:1},
+          money:Number.isFinite(d.mo) ? d.mo : 3000, dex:d.dx || {}};
+    Object.keys(pl.bag).forEach(k => { if (!ITEMS[k]) delete pl.bag[k]; else pl.bag[k] = Math.max(0, pl.bag[k] | 0); });
+    [...pl.party, ...pl.box].forEach(p => markCaught(p.id));
+    if (pl.badges >= 1 || pl.def.garon) pl.vis.quartz = 1;
+    const m0 = MAPS[mapId];
+    const bad = old || pl.x < 0 || pl.y < 0 || pl.x >= mapW(m0) || pl.y >= mapH(m0) || tileSolid(m0, pl.x, pl.y) || npcAt(pl.x, pl.y) || itemAt(pl.x, pl.y);
+    if (bad) { // 旧バージョンのセーブや 不正な位置は 町のケアセンター前から再開
+      const f = townFront(m0.town ? mapId : lastTown.m); mapId = f.m; pl.x = f.x; pl.y = f.y; pl.dir = 'down';
+    }
+    pl.vis[mapId] = 1;
+    rx = pl.x; ry = pl.y; isMoving = false;
+    closeModal(); st = 'MAP'; updHeader();
+    showMsg('記録から 冒険を 再開しました！');
+  } catch (e) { showMsg('データを 読み込めませんでした。'); }
+}
+
+// === フィールド移動 ===
+function npcVisible(n) {
+  if (n.r === 'guard') return pl.badges < n.need;
+  if ((n.vanish || n.r === 'legend') && pl.def[n.id]) return false;
+  return true;
+}
+function npcAt(x, y) { return (MAPS[mapId].npcs || []).find(n => npcVisible(n) && n.y === y && x >= n.x && x < n.x + (n.w || 1)); }
+function talkText(n) { let t = n.txts[0][1]; n.txts.forEach(([b, s]) => { if (pl.badges >= b) t = s; }); return t; }
+function itemAt(x, y) { return (MAPS[mapId].items || []).find(i => i.x === x && i.y === y && !pl.def[i.id]); }
+function pickItem(it) {
+  pl.def[it.id] = 1; pl.bag[it.it] = (pl.bag[it.it] || 0) + it.q;
+  jingle(['E5','G5','C6'], 0.08); autoSave();
+  showMsg(`${ITEMS[it.it].ic} ${ITEMS[it.it].n}を ${it.q}こ ひろった！`);
+}
+function tryStep(dir) {
+  if (st !== 'MAP' || modalOpen() || msgCb || isMoving) return;
+  pl.dir = dir;
+  const [dx, dy] = DIRV[dir], m = MAPS[mapId], nx = pl.x + dx, ny = pl.y + dy;
+  if (nx < 0 || nx >= mapW(m) || ny < 0 || ny >= mapH(m)) return;
+  const t = m.g[ny][nx], key = `${mapId}:${nx},${ny}`;
+  if (t === 'L' && dir === 'down' && ny + 1 < mapH(m) && !tileSolid(m, nx, ny + 1) && !npcAt(nx, ny + 1) && !itemAt(nx, ny + 1)) {
+    bumpKey = null; isMoving = true; moveProg = 0; hop = true; sfx(520, 0.08);
+    moveFrom = {x:pl.x, y:pl.y}; moveTarget = {x:nx, y:ny + 1, t:m.g[ny + 1][nx]};
+    return;
+  }
+  let npc = npcAt(nx, ny);
+  if (!npc && t === 'M') npc = npcAt(nx + dx, ny + dy);
+  const it = itemAt(nx, ny);
+  if (npc || it || tileSolid(m, nx, ny)) {
+    if (bumpKey !== key) {
+      bumpKey = key;
+      if (npc) interactNpc(npc); else if (it) pickItem(it); else sfx(90, 0.05, 'triangle');
+    }
+    return;
+  }
+  bumpKey = null; hop = false;
+  isMoving = true; moveProg = 0;
+  moveFrom = {x:pl.x, y:pl.y}; moveTarget = {x:nx, y:ny, t};
+}
+function interactFacing() {
+  if (st !== 'MAP' || isMoving || modalOpen()) return;
+  const [dx, dy] = DIRV[pl.dir], m = MAPS[mapId], x = pl.x + dx, y = pl.y + dy;
+  if (x < 0 || x >= mapW(m) || y < 0 || y >= mapH(m)) return;
+  const t = m.g[y][x];
+  let n = npcAt(x, y);
+  if (!n && t === 'M') n = npcAt(x + dx, y + dy);
+  if (n) { interactNpc(n); return; }
+  const it = itemAt(x, y);
+  if (it) { pickItem(it); return; }
+  if (t === 'K') { sfx(660); openBox(); return; }
+  if (t === 'D' && !doorAt(m, x, y)) showMsg('カギが かかっている。');
+  else if (t === 'L') showMsg('段差だ。 上からなら とびおりられる。');
+  else if (t === 'X') showMsg(m.indoor ? 'りっぱな 石像だ。' : '大きな 柱が そびえている。');
+  else if (t === 'k') showMsg('むずかしそうな 本や 機械が ならんでいる。');
+  else if (t === 'W') showMsg('水面が きらきら 光っている。');
+  else if (t === 'T' && !m.indoor) showMsg('りっぱな 木だ。');
+}
+function checkSight() {
+  const m = MAPS[mapId];
+  for (const n of (m.npcs || [])) {
+    if (n.r !== 'npc' || !n.sight || pl.def[n.id]) continue;
+    const [dx, dy] = DIRV[n.dir || 'down'];
+    for (let k = 1; k <= n.sight; k++) {
+      const x = n.x + dx * k, y = n.y + dy * k;
+      if (x < 0 || y < 0 || x >= mapW(m) || y >= mapH(m) || tileSolid(m, x, y) || itemAt(x, y)) break;
+      if (x === pl.x && y === pl.y) {
+        clearKeys(); alertNpc = n; sfx(1400, 0.12);
+        pl.dir = {up:'down', down:'up', left:'right', right:'left'}[n.dir || 'down'];
+        showMsg(n.txt, () => { alertNpc = null; beginTransition(() => startBattle(teamOf(n, 0), false, n)); });
+        return true;
+      }
+      if (npcAt(x, y)) break;
+    }
+  }
+  return false;
+}
+function arrive(t) {
+  const m = MAPS[mapId];
+  if (t === 'P') {
+    lastTown = {m:mapId};
+    const a = MAPS.center.an.in; warpTo('center', a[0], a[1]); sfx(700, 0.15); pl.dir = 'up';
+    showMsg('ケアセンターに はいった！\nカウンターの ミナさんに 話しかけると 全回復。');
+    return;
+  }
+  if (t === 'E' && m.indoor) {
+    const e = m.exit || townFront(lastTown.m);
+    warpTo(e.m, e.x, e.y); pl.dir = 'down'; sfx(520, 0.15);
+    showMsg(`${MAPS[mapId].n}に でた！`);
+    return;
+  }
+  const d = (t === 'D' || t === 'C') && doorAt(m, pl.x, pl.y);
+  if (d) {
+    const inside = MAPS[d.m].indoor || MAPS[d.m].theme === 'cave';
+    warpTo(d.m, d.tx, d.ty); pl.dir = inside ? 'up' : 'down'; sfx(inside ? 700 : 520, 0.15);
+    showMsg(inside ? `${MAPS[mapId].n}に はいった！` : `${MAPS[mapId].n}に でた！`);
+    return;
+  }
+  if (m.wp[t]) {
+    const w = m.wp[t]; warpTo(w.m, w.x, w.y); sfx(780, 0.12);
+    showMsg(`${MAPS[mapId].n}に とうちゃく！`);
+    return;
+  }
+  if (checkSight()) return;
+  const rate = t === 'G' ? 0.15 : (m.encAll && t === '.') ? m.encAll : 0;
+  if (rate && m.w && m.w.length && Math.random() < rate) {
+    clearKeys();
+    const wid = m.w[Math.floor(Math.random() * m.w.length)];
+    const lv = m.lv[0] + Math.floor(Math.random() * (m.lv[1] - m.lv[0] + 1));
+    beginTransition(() => startBattle([mkMon(wid, lv)], true, null), true);
+  }
+}
+function warpTo(m, x, y) {
+  mapId = m; pl.x = x; pl.y = y; rx = x; ry = y; isMoving = false; hop = false; alertNpc = null; bumpKey = null; pl.vis[m] = 1; updHeader(); autoSave();
+}
+function interactNpc(n) {
+  sfx(880, 0.05);
+  if (n.r === 'nurse') {
+    showMsg('ミナ「ケアセンターへ ようこそ！\nモンスターを 元気にしますね。」', () => {
+      pl.party.forEach(p => p.hp = p.mhp); autoSave();
+      jingle(['C5','E5','G5','E5','C6'], 0.12);
+      showMsg('ミナ「おまたせしました！\nみんな 元気いっぱいですよ！」');
+    });
+  } else if (n.r === 'shop') {
+    openShop();
+  } else if (n.r === 'sign' || n.r === 'guard') {
+    showMsg(n.txt);
+  } else if (n.r === 'giftmon') {
+    if (pl.def[n.id]) { showMsg('ミドリ「その子と なかよくね！\nいわタイプの ジムには 相性が だいじよ。」'); return; }
+    const rid = [1, 2, 3].find(i => i !== pl.starter && i !== RIVAL_PICK[pl.starter]) || 2;
+    showMsg(`ミドリ「博士の 助手の ミドリです。\n残っていた ${MONS[rid].n}を\nあなたに たくしたいの！」`, () => {
+      pl.def[n.id] = true; const g = mkMon(rid, 10); markCaught(rid);
+      if (pl.party.length < 6) pl.party.push(g); else pl.box.push(g);
+      jingle(['C5','E5','G5','C6'], 0.1); autoSave();
+      showMsg(`${MONS[rid].n}を なかまに した！\n（${TYPE_ICON[MONS[rid].t]}${MONS[rid].t}タイプ）`);
+    });
+  } else if (n.r === 'talk') {
+    showMsg(talkText(n));
+  } else if (n.r === 'legend') {
+    if (!pl.def.zex) showMsg('ふしぎな 力に はばまれて\n近づくことが できない…');
+    else showMsg('…！ 地平線の 伝説 ホラリオンが\nしずかに こちらを 見つめている…！', () => beginTransition(() => startBattle([mkMon(28, 38)], true, n), true));
+  } else if (n.r === 'npc') {
+    if (pl.def[n.id]) {
+      if (n.gym) showMsg(`${shortName(n)}「また 勝負するか？\nこんどは 本気の 本気だ！」\n（Aで 再戦・Lv+6）`, () => beginTransition(() => startBattle(teamOf(n, 6), false, n)));
+      else showMsg(n.after || `${n.n}「つぎは まけないぞ！」`);
+    } else showMsg(n.txt, () => beginTransition(() => startBattle(teamOf(n, 0), false, n)));
+  }
+}
+const shortName = (n) => n.n.split(' ').pop();
+function teamOf(n, bonus) {
+  const pk = RIVAL_PICK[pl.starter] || 4;
+  const RT = {rival1:[[9, 3], [pk, 5]], rival2:[[10, 15], [11, 14], [evoFor(pk, 16), 16]], rival3:[[10, 22], [12, 22], [20, 22], [evoFor(pk, 24), 24]], rival4:[[10, 31], [12, 31], [20, 32], [evoFor(pk, 34), 34]]};
+  const t = typeof n.team === 'string' ? RT[n.team] : n.team;
+  return t.map(([id, lv]) => mkMon(id, lv + bonus));
+}
+
+// === パーティ・ボックス ===
+function openPartyModal(forced = false) {
+  const inBat = st === 'BATTLE' && bat;
+  const items = pl.party.map((p, i) => ({
+    l:`${i === 0 ? '★' : ''}${p.n} Lv${p.lv}${typeTag(p.t)}`,
+    s:`${hpBar(p)}<br>${p.hp}/${p.mhp}`,
+    dis:inBat && (p.hp <= 0 || i === bat.pIdx),
+    fn:() => {
+      if (inBat) {
+        closeModal(); bat.busy = true;
+        bat.pIdx = i; bat.part.add(i); bat.dP = p.hp; bat.fx.pIn = 20; bat.fx.pFaint = 0;
+        showMsg(`もどれ！ ゆけっ ${p.n}！`, () => forced ? openCmdPane() : enemyTurn());
+      } else openMonMenu(i);
+    }
+  }));
+  if (inBat && !forced) items.push({l:'↩ もどる', s:'', fn:() => { closeModal(); openCmdPane(); }});
+  if (!inBat) items.push({l:'↩ メニューへ', s:'', fn:openMenu});
+  showModal('🐾 手持ちモンスター', inBat ? (forced ? 'つぎに 出す モンスターを えらんでください' : '交代する モンスターを えらんでください') : 'タップで くわしく見る', items, !inBat);
+}
+function openMonMenu(i) {
+  const p = pl.party[i], need = expNeed(p) - p.exp;
+  const desc = `${TYPE_ICON[p.t]}${p.t}タイプ　Lv${p.lv}　HP ${p.hp}/${p.mhp}\nこうげき ${p.a}　ぼうぎょ ${p.d}　すばやさ ${p.s}\nつぎのレベルまで あと ${need}${MONS[p.id].evo ? `\nLv${MONS[p.id].el}で しんかする` : ''}\nわざ: ${p.m.map(k => MOVES[k].n).join('・')}`;
+  showModal(`${p.n}`, desc, [
+    {l:'⬆ 先頭にする', s:'', dis:i === 0, fn:() => { pl.party.unshift(pl.party.splice(i, 1)[0]); openPartyModal(); }},
+    {l:'🎒 どうぐを つかう', s:'', fn:() => openFieldBag(i)},
+    {l:'↩ もどる', s:'', fn:() => openPartyModal()}
+  ], true, `<div style="text-align:center">${monImg(p.id)}</div>`);
+}
+// === メニュー ===
+function openMenu() {
+  if (st !== 'MAP' || msgCb || isMoving) return;
+  sfx(880, 0.04);
+  showModal('☰ メニュー', `💰 ${pl.money}円　🏅 バッジ ${pl.badges}/5　📖 ${dexCount(2)}/${TOTAL}`, [
+    {l:'🐾 手持ち', s:`${pl.party.length}/6匹`, fn:() => openPartyModal(false)},
+    {l:'📖 モンスター図鑑', s:`見つけた ${dexCount(1)}・つかまえた ${dexCount(2)}`, fn:() => openDex()},
+    {l:'🎒 バッグ', s:'', fn:() => openFieldBag()},
+    {l:'🗺️ エリア移動', s:'訪れた町へ', fn:warpMenu},
+    {l:'💾 セーブ', s:'', fn:openSaveModal},
+    {l:'❓ あそびかた', s:'操作・相性表', fn:() => openHelp(0)},
+    {l:'✕ とじる', s:'', fn:closeModal}
+  ]);
+}
+function openHelp(p) {
+  const types = Object.keys(TYPE_COL);
+  const chart = types.map(t => { const g = types.filter(d => ((EFF[t] || {})[d] || 1) > 1); return `${TYPE_ICON[t]}${t} → ${g.length ? g.join('・') : '（なし）'}`; }).join('\n');
+  const pages = [
+    ['操作', '移動・カーソル：十字キー / WASD / 矢印キー\n決定・話す・調べる：A / Enter / Z\nもどる・メニュー：B / Space / X\n\n・段差は 上から 下へだけ とびおりられます。\n・落ちている カプセル印は アイテム。 近づいて Aで ひろえます。\n・トレーナーの 視線に 入ると 勝負に なります。'],
+    ['バトル', '⚔️たたかう：わざを えらんで こうげき\n🐾なかま：モンスターを 交代（1ターン消費）\n🎒どうぐ：カプセルで 捕獲、ドリンクで 回復\n💨にげる：野生との バトルから にげる\n\n・すばやさが 高いほうが 先に 動きます。\n・自分と 同じタイプの わざは 威力 1.25倍。\n・HPを へらすほど つかまえやすく なります。'],
+    ['タイプ相性（こうかは ばつぐん ×1.5）', chart],
+    ['スマホで遊ぶ', '・縦持ち／横持ちの どちらでも 遊べます。\n・十字キーは 指を すべらせて 方向を 変えられます。\n・進行は 自動で この端末に セーブされます。\n・ホーム画面に 追加すると アプリのように 全画面で 起動できます。\n　iPhone：Safariの 共有ボタン →「ホーム画面に追加」\n　Android：Chromeの メニュー →「ホーム画面に追加」\n・音が 出ないときは 本体の マナーモードを 解除してください。'],
+    ['冒険のヒント', '・ケアセンター（赤い屋根）で 無料で 全回復。\n・ショップは ケアセンターの 中。 バッジで 品ぞろえが ふえます。\n・町の ジムで マスターに 勝つと バッジ。 5つ 集めると ホライゾン山へ。\n・モンスターは 決まった レベルで しんか。 図鑑で 確認できます。\n・進行は 自動セーブされます。 機種変更などは セーブコードで 引き継げます。']
+  ];
+  showModal(`❓ あそびかた ${p + 1}/${pages.length}：${pages[p][0]}`, pages[p][1], [
+    {l:'▶ つぎの ページ', s:'', dis:p >= pages.length - 1, fn:() => openHelp(p + 1)},
+    {l:'◀ まえの ページ', s:'', dis:p <= 0, fn:() => openHelp(p - 1)},
+    {l:'↩ メニューへ', s:'', fn:openMenu}
+  ]);
+}
+const bagList = () => Object.keys(ITEMS).filter(k => pl.bag[k] > 0);
+function openFieldBag(target = null) {
+  const items = bagList().map(k => {
+    const it = ITEMS[k];
+    return {l:`${it.ic} ${it.n}　×${pl.bag[k]}`, s:it.d, dis:it.kind === 'ball', fn:() => chooseTarget(k, target)};
+  });
+  if (!items.length) items.push({l:'（どうぐが ありません）', s:'', dis:true, fn:() => {}});
+  items.push({l:'↩ もどる', s:'', fn:() => target !== null ? openMonMenu(target) : openMenu()});
+  showModal('🎒 バッグ', `💰 ${pl.money}円\nカプセルは バトル中に つかえます`, items);
+}
+const canUse = (k, p) => ITEMS[k].kind === 'revive' ? p.hp <= 0 : ITEMS[k].kind === 'heal' ? p.hp > 0 && p.hp < p.mhp : false;
+function applyItem(k, p) {
+  pl.bag[k]--;
+  if (ITEMS[k].kind === 'revive') { p.hp = Math.floor(p.mhp / 2); return `${p.n}は 元気を とりもどした！`; }
+  const before = p.hp; p.hp = Math.min(p.mhp, p.hp + ITEMS[k].v);
+  return `${p.n}の HPが ${p.hp - before} かいふくした！`;
+}
+function chooseTarget(k, target) {
+  const items = pl.party.map((p, i) => ({l:`${p.n} Lv${p.lv}`, s:`${hpBar(p)}<br>${p.hp}/${p.mhp}`, dis:!canUse(k, p), fn:() => {
+    const msg = applyItem(k, p); sfx(880, 0.15); closeModal(); showMsg(msg);
+  }}));
+  items.push({l:'↩ もどる', s:'', fn:() => openFieldBag(target)});
+  showModal(`${ITEMS[k].ic} ${ITEMS[k].n}`, 'だれに つかいますか？', items);
+  if (target !== null && !items[target].dis) { navIdx = target; navRender(); }
+}
+function openShop(keep = false) {
+  const stock = Object.keys(ITEMS).filter(k => pl.badges >= ITEMS[k].need);
+  const items = stock.map(k => {
+    const it = ITEMS[k];
+    return {l:`${it.ic} ${it.n}<br><span class="dim" style="font-size:10px">${it.d}　もちもの ${pl.bag[k] || 0}</span>`, s:`${it.price}円`, dis:pl.money < it.price, fn:() => {
+      pl.money -= it.price; pl.bag[k] = (pl.bag[k] || 0) + 1; updMoney(); sfx(1320, 0.06); autoSave();
+      navKeep = true; openShop(true);
+    }};
+  });
+  items.push({l:'↩ やめる', s:'', fn:() => { closeModal(); showMsg('ショップ店員「ありがとうございました！\nまた どうぞ！」'); }});
+  showModal('🛒 フレンドリーショップ', `💰 所持金 ${pl.money}円\n決定で 1つずつ 買えます（バッジが ふえると 品ぞろえも ふえる）`, items, true);
+}
+function monSil(id) {
+  const key = 'm_k_' + id;
+  if (!SPR[key]) { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.drawImage(SPR['m_f_' + id], 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = '#475569'; x.fillRect(0, 0, 64, 64); SPR[key] = c; }
+  return `<img src="${SPR[key].toDataURL()}" alt="">`;
+}
+const habitat = (id) => Object.values(MAPS).filter(m => (m.w || []).includes(id)).map(m => m.n.replace(/（.*）/, ''));
+function openDex(focus = 0) {
+  const ids = Object.keys(MONS).map(Number);
+  const items = ids.map(id => {
+    const v = pl.dex[id] || 0, no = String(id).padStart(2, '0');
+    if (!v) return {l:`<span class="dim">No.${no}　？？？？？</span>`, s:'', dis:true, fn:() => {}};
+    return {l:`${v === 2 ? monImg(id) : monSil(id)}No.${no} ${MONS[id].n}${v === 2 ? ' ★' : ''}`, s:typeTag(MONS[id].t), fn:() => openDexEntry(id)};
+  });
+  items.push({l:'↩ メニューへ', s:'', fn:openMenu});
+  showModal('📖 モンスター図鑑', `見つけた ${dexCount(1)}/${TOTAL}　つかまえた ${dexCount(2)}/${TOTAL}（★）`, items);
+  if (focus) { navIdx = ids.indexOf(focus); navRender(); }
+}
+function openDexEntry(id) {
+  const b = MONS[id], v = pl.dex[id], no = String(id).padStart(2, '0');
+  const ids = Object.keys(MONS).map(Number).filter(i => pl.dex[i]);
+  const pos = ids.indexOf(id);
+  const evo = b.evo ? `\n進化：Lv${b.el}で ${pl.dex[b.evo] ? MONS[b.evo].n : '？？？'}に しんか` : '';
+  const from = Object.keys(MONS).find(k => MONS[k].evo === id);
+  const pre = from ? `\n進化前：${pl.dex[from] ? MONS[from].n : '？？？'}` : '';
+  const hab = habitat(id);
+  const desc = `No.${no}　${TYPE_ICON[b.t]}${b.t}タイプ　${v === 2 ? '★つかまえた' : '見つけた'}\n${v === 2 ? DEX[id] : '（つかまえると くわしい 説明が 見られる）'}${evo}${pre}\n生息地：${hab.length ? hab.join('・') : id === 28 ? 'ホライゾン山 山頂' : id <= 3 ? '博士の研究所 ほか' : '進化で 出会える'}`;
+  showModal(`${b.n}`, desc, [
+    {l:'◀ まえの モンスター', s:'', dis:pos <= 0, fn:() => openDexEntry(ids[pos - 1])},
+    {l:'▶ つぎの モンスター', s:'', dis:pos >= ids.length - 1, fn:() => openDexEntry(ids[pos + 1])},
+    {l:'↩ 一覧へ', s:'', fn:() => openDex(id)}
+  ], true, `<div style="text-align:center">${v === 2 ? monImg(id) : monSil(id)}</div>`);
+}
+function openBox() {
+  const items = [];
+  pl.party.forEach((p, i) => items.push({l:`📤 ${p.n} Lv${p.lv}`, s:'あずける', dis:pl.party.length <= 1, fn:() => {
+    pl.box.push(pl.party.splice(i, 1)[0]); openBox();
+  }}));
+  pl.box.forEach((p, i) => items.push({l:`📥 ${p.n} Lv${p.lv}`, s:'手持ちへ', dis:pl.party.length >= 6, fn:() => {
+    const q = pl.box.splice(i, 1)[0]; q.hp = q.mhp; pl.party.push(q); openBox();
+  }}));
+  items.push({l:'✕ とじる', s:'', fn:closeModal});
+  showModal('💻 あずかりボックス', `手持ち ${pl.party.length}/6　ボックス ${pl.box.length}匹\n（ボックスから出すと 全回復）`, items);
+}
+
+// === バトル ===
+function beginTransition(onDone, wild = false) {
+  clearKeys(); st = 'TRANS'; trans = {t:0, wild, onDone};
+  playSong(null); jingle(['A4','E5','A5','E5','A5'], 0.06);
+}
+function startBattle(team, wild, npc) {
+  const idx = Math.max(0, pl.party.findIndex(p => p.hp > 0));
+  bat = {team, eIdx:0, e:team[0], wild, npc, pIdx:idx, busy:true, ball:null, part:new Set([idx]),
+         theme:MAPS[mapId].theme || 'grass', legend:!!(npc && npc.r === 'legend'),
+         dE:team[0].hp, dP:pl.party[idx].hp, fx:{intro:40, eHit:0, pHit:0, eFaint:0, pFaint:0, eLunge:0, pLunge:0, eIn:0, pIn:0}};
+  st = 'BATTLE'; playSong('battle'); markSeen(team[0].id);
+  const intro = bat.legend ? `でんせつの モンスター\n${bat.e.n}が たちはだかった！` : wild ? `あっ！ やせいの ${bat.e.n}が\nあらわれた！` : `${npc.n}が\nしょうぶを しかけてきた！`;
+  const first = wild ? [intro] : [intro, `${shortName(npc)}は ${bat.e.n}を くりだした！`];
+  runMsgs(first, () => showMsg(`ゆけっ！ ${P().n}！`, openCmdPane));
+}
+function openCmdPane() {
+  if (!bat) return; bat.busy = false;
+  showPane('pane-cmd');
+  $('cmd-who').textContent = `${P().n}は\nどうする？`;
+  $('cmd-sub').textContent = bat.wild ? `カプセル ${pl.bag.ball}` : `のこり ${bat.team.length - bat.eIdx}匹`;
+}
+function openMovesPane() {
+  if (!bat || bat.busy) return; sfx(880, 0.04);
+  showPane('pane-moves');
+  const pm = P();
+  for (let i = 0; i < 4; i++) {
+    const b = $('m' + i), k = pm.m[i], mv = MOVES[k];
+    if (!mv) { b.innerHTML = '<span>－</span>'; b.disabled = true; continue; }
+    b.disabled = false;
+    const ef = eff(mv.t, bat.e.t);
+    const badge = ef > 1 ? 'ばつぐん' : ef < 1 ? 'いまひとつ' : mv.t;
+    b.innerHTML = `<span>${mv.n}</span><span style="font-size:9px;color:${ef > 1 ? '#e82818' : ef < 1 ? '#94a3b8' : TYPE_COL[mv.t]}">${badge}</span>`;
+  }
+}
+function calcDmg(att, def, mv, isPl) {
+  const ef = eff(mv.t, def.t), stab = mv.t === att.t ? 1.25 : 1;
+  const crit = Math.random() < 1 / 16 ? 1.5 : 1, rnd = 0.85 + Math.random() * 0.15;
+  const dmg = Math.max(1, Math.floor((att.a * mv.p) / (def.d * 7) * ef * stab * crit * rnd * (isPl ? 1 : 0.9)));
+  return {dmg, ef, crit:crit > 1};
+}
+function enemyChoose(en, pm) {
+  if (Math.random() < 0.65) {
+    let best = en.m[0], bv = -1;
+    en.m.forEach(k => { const mv = MOVES[k]; const v = mv.p * eff(mv.t, pm.t) * (mv.t === en.t ? 1.25 : 1) * mv.ac / 100; if (v > bv) { bv = v; best = k; } });
+    return best;
+  }
+  return en.m[Math.floor(Math.random() * en.m.length)];
+}
+function doAttack(att, def, key, isPl, next) {
+  const mv = MOVES[key];
+  const who = isPl ? `${att.n}の` : `${bat.wild ? 'やせいの' : 'あいての'} ${att.n}の`;
+  if (isPl) bat.fx.pLunge = 12; else bat.fx.eLunge = 12;
+  if (Math.random() * 100 >= mv.ac) { sfx(200, 0.1, 'triangle'); showMsg(`${who} ${mv.n}！\nしかし こうげきは はずれた！`, next); return; }
+  const r = calcDmg(att, def, mv, isPl);
+  def.hp = Math.max(0, def.hp - r.dmg);
+  if (isPl) bat.fx.eHit = 24; else bat.fx.pHit = 24;
+  buzz(r.ef > 1 ? 40 : 20);
+  if (r.ef > 1) { sfx(520, 0.08); setTimeout(() => sfx(780, 0.1), 80); } else sfx(isPl ? 300 : 170, 0.14);
+  let t = `${who} ${mv.n}！`;
+  if (r.crit) t += '\nきゅうしょに あたった！';
+  if (r.ef > 1) t += '\nこうかは ばつぐんだ！';
+  else if (r.ef < 1) t += '\nあまり きいていない ようだ…';
+  showMsg(t, next);
+}
+function checkFaints() {
+  if (bat.e.hp <= 0) { onEnemyFaint(); return true; }
+  if (P().hp <= 0) { onPlayerFaint(); return true; }
+  return false;
+}
+function playerTurn(i) {
+  if (!bat || bat.busy) return;
+  const pm = P(), en = bat.e, pk = pm.m[i];
+  if (!pk) return;
+  bat.busy = true;
+  const ek = enemyChoose(en, pm), pp = MOVES[pk].pr || 0, ep = MOVES[ek].pr || 0;
+  const pFirst = pp !== ep ? pp > ep : (pm.s === en.s ? Math.random() < 0.5 : pm.s > en.s);
+  const pAct = (nx) => doAttack(pm, en, pk, true, nx);
+  const eAct = (nx) => doAttack(en, pm, ek, false, nx);
+  const [a1, a2] = pFirst ? [pAct, eAct] : [eAct, pAct];
+  a1(() => { if (checkFaints()) return; a2(() => { if (checkFaints()) return; openCmdPane(); }); });
+}
+function enemyTurn() {
+  if (!bat) return;
+  bat.busy = true;
+  doAttack(bat.e, P(), enemyChoose(bat.e, P()), false, () => { if (checkFaints()) return; openCmdPane(); });
+}
+function onEnemyFaint() {
+  const en = bat.e, pm = P();
+  bat.fx.eFaint = 1; sfx(160, 0.35, 'triangle');
+  const amt = Math.floor(en.lv * 20 * (bat.wild ? 1 : 1.5));
+  runMsgs([`${bat.wild ? 'やせいの' : 'あいての'} ${en.n}は たおれた！`, ...gainExp(pm, amt)], () => {
+    if (!bat.wild && bat.eIdx < bat.team.length - 1) {
+      bat.eIdx++; bat.e = bat.team[bat.eIdx]; bat.dE = bat.e.hp; bat.fx.eFaint = 0; bat.fx.eIn = 30; markSeen(bat.e.id);
+      showMsg(`${shortName(bat.npc)}は\n${bat.e.n}を くりだした！`, openCmdPane);
+      return;
+    }
+    winBattle();
+  });
+}
+function winBattle() {
+  if (bat.legend) { pl.def.legend = true; runMsgs(['ホラリオンは 光に つつまれ\n空の かなたへ 帰っていった…'], () => endBattle('ending')); return; }
+  if (bat.wild) { endBattle(); return; }
+  const n = bat.npc, first = !pl.def[n.id];
+  playSong(null); jingle(['G5','G5','G5','C6','-','A5','C6'], 0.13);
+  pl.def[n.id] = true;
+  const msgs = [`${n.n}との しょうぶに かった！`, n.win || `${n.n}「まいった！」`];
+  const prize = bat.team.reduce((a, m) => a + m.lv, 0) * (n.gym ? 80 : n.id === 'zex' ? 100 : 40);
+  pl.money += prize; updMoney(); msgs.push(`賞金 ${prize}円を 手に入れた！`);
+  if (n.vanish) msgs.push(`${shortName(n)}は 去っていった。`);
+  if (n.gym && first) { pl.badges = Math.max(pl.badges, n.gym); msgs.push(`${BADGE[n.gym]}バッジを 手に入れた！`); }
+  runMsgs(msgs, () => endBattle(n.gym && first ? n.gym : false));
+}
+function endBattle(clear = false) {
+  const evoList = bat ? [...bat.part].map(i => pl.party[i]).filter(p => p && canEvolve(p)) : [];
+  bat = null; st = 'MAP'; updHeader();
+  const after = () => {
+    autoSave();
+    if (clear === 'ending') { showEnding(); return; }
+    if (clear) {
+      jingle(['C5','E5','G5','C6','G5','C6','E6'], 0.14);
+      const badges = Object.keys(BADGE).map(k => (k <= pl.badges ? '🏅' : '・')).join('');
+      showModal(`🏅 ${BADGE[clear]}バッジ獲得！`, `バッジ ${pl.badges}/5　${badges}\n\nつぎの目的地：\n${NEXT_HINT[clear]}\n\nセーブも お忘れなく！`, [{l:'▶ 冒険を つづける', s:'', fn:closeModal}], false);
+      showMsg(NEXT_HINT[clear]);
+    } else showMsg('フィールドを ぼうけんしよう！');
+  };
+  const evoNext = () => { const p = evoList.shift(); if (p) evolve(p, evoNext); else after(); };
+  evoNext();
+}
+function showEnding() {
+  playSong('title'); jingle(['C5','E5','G5','C6','E6','G6','C7'], 0.18);
+  const caught = dexCount(2);
+  showModal('🌅 PIXEL HORIZON　―完―', `ナイトクロウ団の 野望は くだかれ、\nホライゾン山に 平和が もどった。\n\nバッジ ${pl.badges}/5　つかまえた種類 ${caught}/${TOTAL}\n\nあそんでくれて ありがとう！\n（冒険は このまま つづけられます）`, [
+    {l:'▶ 冒険を つづける', s:'', fn:closeModal}
+  ], false);
+  showMsg('地平線の 向こうから\nあたらしい 風が ふいてきた。');
+}
+function onPlayerFaint() {
+  const pm = P(); bat.fx.pFaint = 1; sfx(120, 0.4, 'triangle');
+  showMsg(`${pm.n}は たおれた！`, () => {
+    if (pl.party.some(p => p.hp > 0)) openPartyModal(true);
+    else showMsg('手持ちの モンスターが ぜんめつした…\nめのまえが まっくらに なった！', () => {
+      bat = null; st = 'MAP';
+      const lost = Math.floor(pl.money / 2); pl.money -= lost;
+      pl.party.forEach(p => p.hp = p.mhp);
+      const f = townFront(lastTown.m); warpTo(f.m, f.x, f.y); pl.dir = 'down';
+      showMsg(`ケアセンターの前で 目をさました。\n（${lost}円 おとしてしまった…）`);
+    });
+  });
+}
+function openBagModal() {
+  if (!bat || bat.busy) return;
+  const items = bagList().map(k => {
+    const it = ITEMS[k];
+    if (it.kind === 'ball') return {l:`${it.ic} ${it.n}　×${pl.bag[k]}`, s:bat.wild ? it.d : 'トレーナー戦では 使えない', dis:!bat.wild, fn:() => throwBall(k)};
+    if (it.kind === 'heal') return {l:`${it.ic} ${it.n}　×${pl.bag[k]}`, s:`${P().n}に ${it.d}`, dis:!canUse(k, P()), fn:() => {
+      closeModal(); bat.busy = true; const msg = applyItem(k, P()); sfx(880, 0.15); showMsg(msg, enemyTurn);
+    }};
+    return {l:`${it.ic} ${it.n}　×${pl.bag[k]}`, s:it.d, dis:!pl.party.some(p => p.hp <= 0), fn:() => {
+      showModal(`${it.ic} ${it.n}`, 'だれに つかいますか？', pl.party.map(p => ({l:`${p.n} Lv${p.lv}`, s:`${p.hp}/${p.mhp}`, dis:p.hp > 0, fn:() => {
+        closeModal(); bat.busy = true; const msg = applyItem(k, p); sfx(880, 0.15); showMsg(msg, enemyTurn);
+      }})).concat([{l:'↩ もどる', s:'', fn:openBagModal}]), false);
+    }};
+  });
+  items.push({l:'↩ もどる', s:'', fn:() => { closeModal(); openCmdPane(); }});
+  showModal('🎒 どうぐ', `つかう どうぐを えらんでください　💰${pl.money}円`, items, false);
+}
+function throwBall(k = 'ball') {
+  closeModal(); pl.bag[k]--; bat.busy = true;
+  const en = bat.e, r = en.hp / en.mhp, mult = ITEMS[k].rate;
+  const base = (0.3 + 0.65 * (1 - r) - Math.max(0, en.lv - 5) * 0.008) * (bat.legend ? 0.45 : 1);
+  const rate = Math.max(bat.legend ? 0.05 : 0.1, Math.min(0.97, base * mult));
+  const ok = Math.random() < rate, shakes = ok ? 3 : Math.floor(Math.random() * 3);
+  sfx(720, 0.15);
+  bat.ball = {t:0, shakes, ok, done:() => {
+    if (ok) {
+      jingle(['C5','E5','G5','C6'], 0.1);
+      const caught = {...en, m:[...en.m]};
+      const msgs = [`やった！ ${en.n}を つかまえた！`];
+      if (pl.dex[en.id] !== 2) msgs.push(`${en.n}の データが\nモンスター図鑑に 登録された！`);
+      markCaught(en.id);
+      if (pl.party.length < 6) pl.party.push(caught);
+      else { pl.box.push(caught); msgs.push(`手持ちが いっぱいなので\n${en.n}は ボックスへ おくられた。`); }
+      const isLegend = bat.legend; if (isLegend) pl.def.legend = true;
+      runMsgs(msgs, () => endBattle(isLegend ? 'ending' : false));
+    } else {
+      bat.ball = null;
+      showMsg(['ああっ！ カプセルから でてしまった！', 'おしい！ もう少しで つかまえられたのに！', 'あと ちょっとだった！'][shakes] || 'ああっ！', enemyTurn);
+    }
+  }};
+  showMsg(`アルトは ${ITEMS[k].n}を なげた！`);
+}
+function tryRun() {
+  if (!bat || bat.busy) return;
+  if (!bat.wild) { showMsg('トレーナーとの しょうぶから\nにげることは できない！', openCmdPane); return; }
+  bat.busy = true;
+  const ok = Math.random() < Math.min(0.95, 0.55 + (P().s - bat.e.s) * 0.04);
+  if (ok) { sfx(600, 0.1); showMsg('うまく にげきれた！', () => endBattle()); }
+  else showMsg('にげられなかった！', enemyTurn);
+}
+
+// === 進化 ===
+function evolve(p, done) {
+  const from = p.id, to = MONS[p.id].evo, oldName = p.n;
+  st = 'EVO'; playSong(null);
+  showMsg(`おや？ ${oldName}の からだが\nひかりだした…！`);
+  jingle(['C5','D5','E5','F5','G5','A5','B5','C6'], 0.18);
+  evoSt = {from, to, t:0, onApply:() => {
+    p.id = to; p.n = MONS[to].n; p.t = MONS[to].t; calcStats(p, true); markCaught(to);
+    p.m = movesAt(to, p.lv);
+    jingle(['C6','G5','C6','E6','G6'], 0.12);
+  }, onDone:() => {
+    showMsg(`おめでとう！ ${oldName}は\n${p.n}に しんかした！`, () => { evoSt = null; st = 'MAP'; updHeader(); done(); });
+  }};
+}
+
+// === 更新 ===
+function update() {
+  tick++;
+  updMsg();
+  if (navHeld) { navT++; if (navT > 24 && navT % 7 === 0 && !navMove(navHeld)) navHeld = null; }
+  if (st === 'MAP') {
+    const anyKey = KEYS.up || KEYS.down || KEYS.left || KEYS.right;
+    if (!anyKey) bumpKey = null;
+    if (!isMoving && !msgCb && !modalOpen()) {
+      if (KEYS.up) tryStep('up'); else if (KEYS.down) tryStep('down');
+      else if (KEYS.left) tryStep('left'); else if (KEYS.right) tryStep('right');
+    }
+    if (isMoving) {
+      moveProg = Math.min(1, moveProg + (hop ? 1 / 15 : 1 / 9));
+      rx = moveFrom.x + (moveTarget.x - moveFrom.x) * moveProg;
+      ry = moveFrom.y + (moveTarget.y - moveFrom.y) * moveProg;
+      if (moveProg >= 1) {
+        pl.x = moveTarget.x; pl.y = moveTarget.y; rx = pl.x; ry = pl.y; isMoving = false; hop = false;
+        arrive(moveTarget.t);
+      }
+    }
+  } else if (st === 'TRANS' && trans) {
+    trans.t++;
+    if (trans.t >= 56) { const f = trans.onDone; trans = null; f(); }
+  } else if (st === 'BATTLE' && bat) {
+    const fx = bat.fx;
+    ['intro', 'eHit', 'pHit', 'eLunge', 'pLunge', 'eIn', 'pIn'].forEach(k => { if (fx[k] > 0) fx[k]--; });
+    if (fx.eFaint > 0 && fx.eFaint < 20) fx.eFaint++;
+    if (fx.pFaint > 0 && fx.pFaint < 20) fx.pFaint++;
+    bat.dE += (bat.e.hp - bat.dE) * 0.12; if (Math.abs(bat.e.hp - bat.dE) < 0.3) bat.dE = bat.e.hp;
+    const p = P(); bat.dP += (p.hp - bat.dP) * 0.12; if (Math.abs(p.hp - bat.dP) < 0.3) bat.dP = p.hp;
+    if (bat.ball) {
+      bat.ball.t++;
+      const b = bat.ball, shakeT = 36 + b.shakes * 28;
+      if (b.t > 36 && b.t <= shakeT && (b.t - 36) % 28 === 1) sfx(300, 0.05);
+      if (b.t === shakeT + 20 && b.done) { const d = b.done; b.done = null; d(); }
+    }
+  } else if (st === 'EVO' && evoSt) {
+    evoSt.t++;
+    if (evoSt.t === 170) evoSt.onApply();
+    if (evoSt.t === 210) evoSt.onDone();
+  }
+}
+
+// === 描画 ===
+function txt(s, x, y, col = '#101820', size = 10) {
+  ctx.font = `bold ${size}px monospace`; ctx.fillStyle = col; ctx.fillText(s, x, y);
+}
+function drawTitle() {
+  const g = ctx.createLinearGradient(0, 0, 0, 160);
+  g.addColorStop(0, '#1840a8'); g.addColorStop(0.55, '#78d8f8'); g.addColorStop(1, '#f8e8b0');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 256, 160);
+  ctx.fillStyle = '#f8e030'; ctx.beginPath(); ctx.arc(200, 96, 22, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#f8f8f0';
+  for (let i = 0; i < 4; i++) { const x = ((i * 80 + tick * 0.2 * (i % 2 + 1)) % 320) - 40; ctx.fillRect(x, 70 + i * 9, 30, 5); ctx.fillRect(x + 6, 66 + i * 9, 18, 4); }
+  for (let x = 0; x < 256; x += 2) {
+    const h1 = 112 + Math.sin((x + tick * 0.3) / 30) * 6, h2 = 128 + Math.sin((x + tick * 0.6) / 18) * 4;
+    ctx.fillStyle = '#186828'; ctx.fillRect(x, h1, 2, 160 - h1);
+    ctx.fillStyle = '#38b838'; ctx.fillRect(x, h2, 2, 160 - h2);
+  }
+  ctx.textAlign = 'center';
+  txt('PIXEL HORIZON', 129, 31, '#101820', 22);
+  txt('PIXEL HORIZON', 128, 30, '#f8e030', 22);
+  txt('― モンスター育成RPG ―', 128, 46, '#f8f8f0', 10);
+  ctx.textAlign = 'left';
+  [1, 2, 3, 4].forEach((id, i) => {
+    const bob = Math.sin(tick * 0.08 + i * 1.5) * 3;
+    ctx.drawImage(SPR['m_f_' + id], 8 + i * 62, 96 + bob, 48, 48);
+  });
+}
+function drawWater(x, y) {
+  const o = (tick >> 3) % 16;
+  ctx.drawImage(SPR.t_water, o, 0, 16 - o, 16, x, y, 16 - o, 16);
+  if (o) ctx.drawImage(SPR.t_water, 0, 0, o, 16, x + 16 - o, y, o, 16);
+}
+function drawPlanks(x, y) {
+  ctx.fillStyle = '#b87030'; ctx.fillRect(x + 1, y, 14, 16);
+  ctx.fillStyle = '#101820'; ctx.fillRect(x + 1, y, 1, 16); ctx.fillRect(x + 14, y, 1, 16);
+  ctx.fillStyle = '#805020'; for (let k = 3; k < 16; k += 4) ctx.fillRect(x + 2, y + k, 12, 1);
+}
+function drawTile(t, x, y, m, c, r) {
+  const R4 = (col, a, b, w, h) => { ctx.fillStyle = col; ctx.fillRect(x + a, y + b, w, h); };
+  if (m.indoor) {
+    const fl = FLOORS[m.floor] || FLOORS.center;
+    if (t === 'H') { R4('#c0c8d0', 0, 0, 16, 16); R4('#687078', 0, 13, 16, 3); R4('#f8f8f0', 0, 0, 16, 1); return; }
+    R4((c + r) % 2 === 0 ? fl[0] : fl[1], 0, 0, 16, 16);
+    if (t === 'd') { R4(fl[2], 0, 0, 16, 16); R4(fl[3], 0, 15, 16, 1); }
+    else if (t === 'M') { R4('#b87030', 0, 2, 16, 14); R4('#f8f8f0', 0, 2, 16, 4); R4('#101820', 0, 6, 16, 1); }
+    else if (t === 'K') { R4('#687078', 1, 1, 14, 14); R4(tick % 40 < 20 ? '#78d8f8' : '#3090f8', 3, 3, 10, 7); R4('#101820', 3, 12, 10, 2); }
+    else if (t === 'k') { R4('#805020', 0, 0, 16, 16); R4('#b87030', 1, 1, 14, 6); R4('#b87030', 1, 9, 14, 6); ['#e82818','#3090f8','#38b838','#f8e030','#a858d8'].forEach((col, i) => { R4(col, 2 + i * 3, 2, 2, 5); R4(col, 13 - i * 3, 10, 2, 5); }); }
+    else if (t === 'F') { R4('#b87030', 4, 10, 8, 6); R4('#38b838', 2, 2, 12, 9); R4('#186828', 4, 4, 3, 3); }
+    else if (t === 'T') { R4('#186828', 0, 1, 16, 15); R4('#38b838', 1, 0, 14, 12); R4('#186828', 3, 3, 3, 2); R4('#186828', 9, 6, 3, 2); R4('#f8e030', 11, 2, 2, 2); }
+    else if (t === 'X') { R4('#687078', 2, 11, 12, 5); R4('#c0c8d0', 3, 12, 10, 2); R4('#c0c8d0', 5, 2, 6, 9); R4('#687078', 5, 2, 6, 1); R4('#101820', 6, 4, 1, 1); R4('#101820', 9, 4, 1, 1); R4(fl[3], 7, 7, 2, 2); }
+    else if (t === 'O') ctx.drawImage(SPR.t_rock, x, y);
+    else if (t === 'W') drawWater(x, y);
+    else if (t === 'b') { drawWater(x, y); drawPlanks(x, y); }
+    else if (t === 'E') { R4(tick % 30 < 15 ? '#f8e030' : '#f88818', 1, 1, 14, 14); txt('▼', x + 3, y + 12); }
+    return;
+  }
+  const th = THEME[m.theme] || THEME.grass;
+  if (t === 'W') { drawWater(x, y); return; }
+  if (t === 'b') { drawWater(x, y); drawPlanks(x, y); return; }
+  ctx.drawImage(SPR[t === 'd' ? 't_path' : th.g], x, y);
+  if (t === 'T') ctx.drawImage(SPR[th.T], x, y);
+  else if (t === 'O') ctx.drawImage(SPR.t_rock, x, y);
+  else if (t === 'G') ctx.drawImage(SPR[th.G], x, y);
+  else if (t === 'F') ctx.drawImage(SPR[th.F], x, y + ((tick >> 4) % 2));
+  else if (t === 'R') ctx.drawImage(SPR.t_roof, x, y);
+  else if (t === 'r') ctx.drawImage(SPR.t_roof_blue, x, y);
+  else if (t === 'Y') ctx.drawImage(SPR.t_roof_gym, x, y);
+  else if (t === 'H') ctx.drawImage(SPR.t_wall, x, y);
+  else if (t === 'P') ctx.drawImage(SPR.t_pc_door, x, y);
+  else if (t === 'D') { ctx.drawImage(SPR.t_wall, x, y); R4('#101820', 2, 2, 12, 14); R4(doorAt(m, c, r) ? '#f8e030' : '#b87030', 3, 3, 10, 13); if (doorAt(m, c, r)) R4('#f88818', 3, 3, 10, 2); R4('#101820', 10, 9, 2, 2); }
+  else if (t === 'C') { ctx.drawImage(SPR.t_rock, x, y - 2); R4('#101820', 3, 4, 10, 12); R4('#101820', 5, 2, 6, 2); R4('#302838', 5, 6, 6, 10); }
+  else if (t === 'B') { R4('#101820', 0, 5, 16, 1); R4('#f8f8f0', 0, 6, 16, 2); R4('#101820', 0, 8, 16, 1); R4('#f8f8f0', 0, 10, 16, 2); R4('#101820', 0, 12, 16, 1); R4('#101820', 2, 3, 4, 12); R4('#f8f8f0', 3, 4, 2, 10); R4('#101820', 10, 3, 4, 12); R4('#f8f8f0', 11, 4, 2, 10); }
+  else if (t === 'L') { R4('rgba(16,24,32,.28)', 0, 9, 16, 7); R4('#101820', 0, 8, 16, 1); R4('rgba(248,248,240,.5)', 0, 6, 16, 2); for (let k = 2; k < 16; k += 5) R4('#101820', k, 11, 1, 3); }
+  else if (t === 'X') { R4('#101820', 4, 0, 8, 16); R4('#c0c8d0', 5, 1, 6, 14); R4('#687078', 9, 1, 2, 14); R4('#f8e030', 5, 3, 6, 2); R4('#101820', 2, 13, 12, 3); R4('#687078', 3, 14, 10, 1); }
+  else if ('^v<>'.includes(t)) {
+    R4(tick % 30 < 15 ? '#f8e030' : '#f88818', 1, 1, 14, 14);
+    txt({'^':'▲', 'v':'▼', '>':'▶', '<':'◀'}[t], x + 3, y + 12);
+  }
+}
+function drawMap() {
+  const m = MAPS[mapId], W = mapW(m), H = mapH(m);
+  camOx = Math.round(Math.max(0, Math.min(W - 16, rx - 7.5)) * 16);
+  camOy = Math.round(Math.max(0, Math.min(H - 10, ry - 4.5)) * 16);
+  const c0 = Math.floor(camOx / 16), r0 = Math.floor(camOy / 16);
+  for (let r = r0; r <= r0 + 10 && r < H; r++) for (let c = c0; c <= c0 + 16 && c < W; c++) drawTile(m.g[r][c], c * 16 - camOx, r * 16 - camOy, m, c, r);
+  (m.items || []).forEach(it => {
+    if (pl.def[it.id]) return;
+    const x = it.x * 16 - camOx + 8, y = it.y * 16 - camOy + 9;
+    ctx.fillStyle = 'rgba(16,24,32,.25)'; ctx.fillRect(x - 5, y + 4, 10, 2);
+    ctx.fillStyle = '#101820'; ctx.beginPath(); ctx.arc(x, y, 5.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e82818'; ctx.beginPath(); ctx.arc(x, y, 4.5, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#f8f8f0'; ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI); ctx.fill();
+    ctx.fillStyle = '#101820'; ctx.fillRect(x - 5, y - 1, 10, 1);
+    if ((tick >> 4) % 4 === 0) { ctx.fillStyle = '#f8f8f0'; ctx.fillRect(x - 3, y - 4, 2, 2); }
+  });
+  (m.npcs || []).forEach(n => {
+    if (!npcVisible(n)) return;
+    const x = n.x * 16 - camOx, y = n.y * 16 - camOy;
+    if (x < -40 || x > 272 || y < -20 || y > 176) return;
+    for (let k = 1; k < (n.w || 1); k++) { // 通せんぼ用バリケード
+      const bx = x + k * 16; ctx.fillStyle = '#101820'; ctx.fillRect(bx + 1, y + 6, 14, 7);
+      ctx.fillStyle = '#f8e030'; for (let q = 0; q < 3; q++) ctx.fillRect(bx + 2 + q * 5, y + 7, 3, 5);
+      ctx.fillStyle = '#687078'; ctx.fillRect(bx + 2, y + 13, 2, 3); ctx.fillRect(bx + 12, y + 13, 2, 3);
+    }
+    if (n.r === 'legend') { if (pl.def.zex) { ctx.globalAlpha = 0.6 + Math.sin(tick * 0.1) * 0.3; } ctx.drawImage(SPR.m_s_28, x, y + Math.sin(tick * 0.08) * 2); ctx.globalAlpha = 1; return; }
+    if (n.r === 'sign') ctx.drawImage(SPR.t_sign, x, y);
+    else if (n.r === 'nurse') ctx.drawImage(SPR.t_nurse, x, y);
+    else {
+      const face = n.r === 'npc' && n.dir && n.dir !== 'down' && !pl.def[n.id] ? '_' + n.dir : '';
+      ctx.drawImage(SPR['t_' + (n.spr || 'npc') + face] || SPR.t_npc, x, y);
+      if (alertNpc === n) {
+        ctx.fillStyle = '#f8f8f0'; ctx.fillRect(x + 3, y - 14, 10, 12); ctx.strokeStyle = '#101820'; ctx.lineWidth = 1; ctx.strokeRect(x + 3.5, y - 13.5, 9, 11);
+        txt('!', x + 5, y - 4, '#e82818', 11);
+      }
+    }
+  });
+  const px = Math.round(rx * 16) - camOx, py = Math.round(ry * 16) - camOy;
+  const bob = hop ? -Math.round(Math.sin(moveProg * Math.PI) * 7) : (isMoving && moveProg > 0.25 && moveProg < 0.75 ? -1 : 0);
+  if (hop) { ctx.fillStyle = 'rgba(16,24,32,.3)'; ctx.fillRect(px + 3, py + 13, 10, 3); }
+  ctx.drawImage(SPR['t_player_' + pl.dir], px, py + bob);
+  if (!isMoving && !m.indoor && m.g[pl.y][pl.x] === 'G') ctx.drawImage(SPR[(THEME[m.theme] || THEME.grass).G], 0, 9, 16, 7, px, py + 9, 16, 7);
+}
+function drawTransOverlay() {
+  const t = trans.t;
+  if (t < 18) {
+    if (trans.wild) {
+      const x = Math.round(rx * 16) - camOx, y = Math.round(ry * 16) - camOy;
+      ctx.fillStyle = '#f8f8f0'; ctx.fillRect(x + 3, y - 14, 10, 12); ctx.strokeStyle = '#101820'; ctx.strokeRect(x + 3.5, y - 13.5, 9, 11);
+      txt('!', x + 5, y - 4, '#e82818', 11);
+    }
+    if (t % 6 < 3) { ctx.fillStyle = 'rgba(248,248,240,.5)'; ctx.fillRect(0, 0, 256, 160); }
+    return;
+  }
+  const k = Math.min(1, (t - 18) / 32);
+  ctx.fillStyle = '#101820';
+  for (let i = 0; i < 10; i++) {
+    const w = 256 * k;
+    if (i % 2) ctx.fillRect(0, i * 16, w, 16); else ctx.fillRect(256 - w, i * 16, w, 16);
+  }
+}
+function drawHpBar(x, y, w, cur, max) {
+  ctx.fillStyle = '#101820'; ctx.fillRect(x - 1, y - 1, w + 2, 7);
+  ctx.fillStyle = '#687078'; ctx.fillRect(x, y, w, 5);
+  const r = Math.max(0, cur / max);
+  ctx.fillStyle = hpCol(r); ctx.fillRect(x, y, Math.ceil(w * r), 5);
+}
+function drawSprite(key, x, y, faint, hit) {
+  if (hit > 0 && (hit >> 2) % 2 === 0) return;
+  const img = SPR[key]; if (!img) return;
+  if (faint > 0) {
+    const off = faint * 4; if (off >= 64) return;
+    ctx.drawImage(img, 0, 0, 64, 64 - off, x, y + off, 64, 64 - off);
+  } else ctx.drawImage(img, x, y);
+}
+function drawBattle() {
+  ctx.fillStyle = '#f8f8f0'; ctx.fillRect(0, 0, 256, 160);
+  ctx.fillStyle = (THEME[bat.theme] || THEME.grass).bg; ctx.fillRect(0, 0, 256, 80);
+  const e = bat.e, p = P(), fx = bat.fx;
+  // 足場
+  ctx.fillStyle = '#c0c8d0';
+  ctx.beginPath(); ctx.ellipse(208, 68, 44, 9, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(48, 150, 46, 9, 0, 0, Math.PI * 2); ctx.fill();
+  // 敵
+  const lungeOf = (v) => v > 6 ? (12 - v) * 2 : v * 2;
+  let ex = 176 - fx.intro * 6 + fx.eIn * 3 - lungeOf(fx.eLunge) + (fx.eHit > 12 ? Math.sin(fx.eHit * 2) * 3 : 0);
+  if (bat.ball) {
+    const b = bat.ball, t = b.t;
+    if (t < 36) { // 投げる放物線
+      const k = t / 36, bx = 40 + (208 - 40) * k, by = 110 - Math.sin(k * Math.PI) * 90 + (44 - 110) * k * 0.4;
+      if (t < 26) drawSprite('m_f_' + e.id, ex, 6 + Math.sin(tick * 0.1) * 2, 0, 0);
+      drawCapsule(bx, by, 0);
+    } else {
+      const shakeT = 36 + b.shakes * 28, inShake = t <= shakeT;
+      const ang = inShake ? Math.sin((t - 36) / 28 * Math.PI * 2) * 0.5 : 0;
+      if (!b.ok && t > shakeT + 4) drawSprite('m_f_' + e.id, ex, 6, 0, 0);
+      else drawCapsule(208, 56, ang);
+      if (b.ok && t > shakeT) txt('★', 222, 44 - (t - shakeT) * 0.5, '#f8e030', 10);
+    }
+  } else {
+    drawSprite('m_f_' + e.id, Math.round(ex), Math.round(6 + Math.sin(tick * 0.1) * 2), fx.eFaint, fx.eHit);
+  }
+  // 味方
+  const px = 16 + fx.intro * 6 + lungeOf(fx.pLunge) - fx.pIn * 4 + (fx.pHit > 12 ? Math.sin(fx.pHit * 2) * 3 : 0);
+  drawSprite('m_b_' + p.id, Math.round(px), 88, fx.pFaint, fx.pHit);
+  // 敵ステータス
+  txt(`${e.n}`, 10, 16); txt(`Lv${e.lv}`, 104, 16);
+  ctx.fillStyle = TYPE_COL[e.t]; ctx.fillRect(10, 20, 3, 6);
+  txt('HP', 16, 27, '#e88818', 8); drawHpBar(30, 21, 104, bat.dE, e.mhp);
+  ctx.fillStyle = '#101820'; ctx.fillRect(6, 8, 2, 28); ctx.fillRect(6, 34, 134, 2);
+  if (!bat.wild) bat.team.forEach((m, i) => { ctx.fillStyle = (i < bat.eIdx || m.hp <= 0) ? '#c0c8d0' : '#e82818'; ctx.fillRect(12 + i * 9, 40, 6, 6); });
+  // 味方ステータス
+  txt(`${p.n}`, 112, 108); txt(`Lv${p.lv}`, 208, 108);
+  txt('HP', 112, 121, '#e88818', 8); drawHpBar(128, 115, 110, bat.dP, p.mhp);
+  txt(`${Math.ceil(bat.dP)}/${p.mhp}`, 176, 135);
+  ctx.fillStyle = '#101820'; ctx.fillRect(106, 142, 142, 2); ctx.fillRect(246, 100, 2, 44);
+  ctx.fillStyle = '#c0c8d0'; ctx.fillRect(112, 138, 126, 2);
+  ctx.fillStyle = '#3090f8'; ctx.fillRect(112, 138, Math.round(126 * Math.min(1, p.exp / expNeed(p))), 2);
+  pl.party.forEach((m, i) => { ctx.fillStyle = m.hp > 0 ? '#e82818' : '#c0c8d0'; ctx.beginPath(); ctx.arc(116 + i * 10, 151, 3, 0, Math.PI * 2); ctx.fill(); });
+  // 登場時のワイプ明け
+  if (fx.intro > 30) { ctx.fillStyle = '#101820'; ctx.fillRect(0, 0, 256, (fx.intro - 30) * 16); }
+}
+function drawCapsule(x, y, ang) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.fillStyle = '#101820'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#e82818'; ctx.beginPath(); ctx.arc(0, 0, 6.5, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#f8f8f0'; ctx.beginPath(); ctx.arc(0, 0, 6.5, 0, Math.PI); ctx.fill();
+  ctx.fillStyle = '#101820'; ctx.fillRect(-7, -1, 14, 2);
+  ctx.fillStyle = '#f8f8f0'; ctx.fillRect(-2, -2, 4, 4);
+  ctx.restore();
+}
+function drawEvo() {
+  const t = evoSt.t;
+  ctx.fillStyle = '#101820'; ctx.fillRect(0, 0, 256, 160);
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * Math.PI * 2 + t * 0.02;
+    ctx.strokeStyle = i % 2 ? '#1840a8' : '#3090f8'; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(128, 80); ctx.lineTo(128 + Math.cos(a) * 200, 80 + Math.sin(a) * 200); ctx.stroke();
+  }
+  const period = Math.max(3, 24 - Math.floor(t / 8));
+  const showTo = t >= 170 || (t > 30 && t < 170 && Math.floor(t / period) % 2 === 1);
+  const id = showTo ? evoSt.to : evoSt.from;
+  ctx.drawImage(SPR['m_f_' + id], 96, 40);
+  if (t >= 160 && t < 185) { ctx.fillStyle = `rgba(248,248,240,${1 - Math.abs(t - 172) / 13})`; ctx.fillRect(0, 0, 256, 160); }
+}
+function draw() {
+  if (st === 'TITLE') drawTitle();
+  else if (st === 'BATTLE' && bat) drawBattle();
+  else if (st === 'EVO' && evoSt) drawEvo();
+  else { drawMap(); if (st === 'TRANS' && trans) drawTransOverlay(); }
+}
+let acc = 0, last = performance.now();
+function frame(now) {
+  acc += Math.min(200, now - last); last = now;
+  let n = 0;
+  while (acc >= 1000 / 60 && n < 8) { update(); acc -= 1000 / 60; n++; }
+  draw();
+  requestAnimationFrame(frame);
+}
+
+// === 入力 ===
+function handleA() {
+  startAudio();
+  if (typing()) { msgPos = msgFull.length; $('msg-txt').textContent = msgFull; return; }
+  if (msgCb) { const c = msgCb; msgCb = null; sfx(1000, 0.03); c(); return; }
+  if (navConfirm()) return;
+  if (modalOpen()) return;
+  if (st === 'MAP') interactFacing();
+}
+function handleB() {
+  startAudio();
+  if (modalOpen()) {
+    if (st !== 'TITLE' && !$('m-close').classList.contains('hide')) { closeModal(); sfx(600, 0.03); return; }
+    const back = [...document.querySelectorAll('#m-list .mbtn')].find(b => /^[↩✕]/.test(b.textContent) && !b.disabled);
+    if (back) back.click();
+    return;
+  }
+  if (st === 'BATTLE' && bat && !bat.busy && !$('pane-moves').classList.contains('hide')) { openCmdPane(); return; }
+  if (st === 'MAP' && !typing() && !msgCb && !isMoving) openMenu();
+}
+function dirPress(dir) { startAudio(); if (navMove(dir)) return true; return false; }
+function warpMenu() {
+  if (st !== 'MAP' || msgCb || isMoving) return;
+  const go = (m) => () => { const f = townFront(m); closeModal(); warpTo(f.m, f.x, f.y); pl.dir = 'down'; showMsg(`${MAPS[m].n}へ 移動した！`); };
+  const items = WARP_TOWNS.filter(([m]) => pl.vis[m]).map(([m, ic]) => ({l:`${ic} ${MAPS[m].n}`, s:m === mapId ? '現在地' : '', fn:go(m)}));
+  items.push({l:'↩ メニューへ', s:'', fn:openMenu});
+  showModal('🗺️ エリア移動', '一度 訪れた 町へ すぐに 移動できます', items);
+}
+
+function init() {
+  initSprites();
+  tap('m-close', closeModal);
+  tap('pane-msg', handleA);
+  tap(cvs, () => { if (typing() || msgCb) handleA(); });
+  tap('c0', openMovesPane);
+  tap('c1', () => { if (bat && !bat.busy) openPartyModal(false); });
+  tap('c2', openBagModal);
+  tap('c3', tryRun);
+  tap('mv-back', () => { if (bat && !bat.busy) openCmdPane(); });
+  [0, 1, 2, 3].forEach(i => tap('m' + i, () => playerTurn(i)));
+  tap('btn-menu', () => { if (modalOpen() && st === 'MAP') closeModal(); else openMenu(); });
+  tap('btn-snd', () => { muted = !muted; $('btn-snd').textContent = muted ? '🔇音' : '🔊音'; });
+  tap('btn-a', handleA);
+  tap('btn-b', handleB);
+
+  // 十字キー（画面）：押したまま 指を すべらせて 方向を 変えられる
+  const dpad = $('dpad'); let dpId = null, dpDir = null;
+  const dpSet = (dir) => {
+    if (dir === dpDir) return;
+    document.querySelectorAll('.dp').forEach(b => b.classList.toggle('on', b.dataset.dir === dir));
+    if (dpDir) KEYS[dpDir] = false;
+    dpDir = dir; navHeld = null;
+    if (!dir) return;
+    buzz(8);
+    if (dirPress(dir)) { navHeld = dir; navT = 0; } else { clearKeys(); KEYS[dir] = true; }
+  };
+  const dpFrom = (e) => {
+    const r = dpad.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    if (Math.hypot(dx, dy) < r.width * 0.12) return dpDir;
+    return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+  };
+  dpad.addEventListener('pointerdown', e => { e.preventDefault(); dpId = e.pointerId; try { dpad.setPointerCapture(e.pointerId); } catch (_) {} dpSet(dpFrom(e)); });
+  dpad.addEventListener('pointermove', e => { if (e.pointerId === dpId) dpSet(dpFrom(e)); });
+  const dpEnd = (e) => { if (e.pointerId !== dpId) return; dpId = null; dpSet(null); };
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => dpad.addEventListener(ev, dpEnd));
+
+  // スマホ向け：長押しメニュー・ダブルタップ拡大・ピンチを 無効化、裏に まわったら 自動セーブ
+  ['contextmenu', 'gesturestart', 'dblclick'].forEach(ev => document.addEventListener(ev, e => { if (!(e.target && e.target.tagName === 'INPUT')) e.preventDefault(); }));
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { autoSave(); clearKeys(); dpSet(null); }
+    else { keepAwake(); try { if (aCtx && aCtx.state !== 'running') aCtx.resume(); } catch (e) {} last = performance.now(); acc = 0; }
+  });
+  window.addEventListener('pagehide', autoSave);
+  if (/google/.test(document.referrer || '')) document.documentElement.classList.add('gs');
+  // ホーム画面用アイコン：同じ場所に 画像ファイルが 無いときは その場で 作る
+  const mkIcon = () => {
+    const c = document.createElement('canvas'); c.width = c.height = 180; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
+    const g = x.createLinearGradient(0, 0, 0, 180); g.addColorStop(0, '#1840a8'); g.addColorStop(0.6, '#78d8f8'); g.addColorStop(1, '#38b838');
+    x.fillStyle = g; x.fillRect(0, 0, 180, 180); x.fillStyle = '#f8e030'; x.beginPath(); x.arc(138, 46, 22, 0, Math.PI * 2); x.fill();
+    x.drawImage(SPR.m_f_1, 26, 34, 128, 128); return c.toDataURL('image/png');
+  };
+  const useData = () => { try { const u = mkIcon(); $('lnk-touch').href = u; $('lnk-icon').href = u; } catch (e) {} };
+  if (/^https?:$/.test(location.protocol) && $('lnk-touch')) { const im = new Image(); im.onerror = useData; im.src = 'apple-touch-icon.png'; } else if ($('lnk-touch')) useData();
+  try { if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost') && window.self === window.top) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {}
+
+  const KMAP = {w:'up', arrowup:'up', s:'down', arrowdown:'down', a:'left', arrowleft:'left', d:'right', arrowright:'right'};
+  window.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (e.target && e.target.tagName === 'INPUT') return;
+    if (KMAP[k]) { e.preventDefault(); if (dirPress(KMAP[k])) return; KEYS[KMAP[k]] = true; return; }
+    if (k === 'enter' || k === 'z' || k === 'j') { e.preventDefault(); if (document.activeElement) document.activeElement.blur(); if (!e.repeat) handleA(); }
+    if (k === ' ' || k === 'x' || k === 'k' || k === 'escape') { e.preventDefault(); if (document.activeElement) document.activeElement.blur(); if (!e.repeat) handleB(); }
+  });
+  window.addEventListener('keyup', e => { const k = KMAP[e.key.toLowerCase()]; if (k) KEYS[k] = false; });
+  window.addEventListener('blur', clearKeys);
+
+  openTitle(); updMoney();
+  requestAnimationFrame(frame);
+}
+init();
+</script>
+</body>
+</html>
