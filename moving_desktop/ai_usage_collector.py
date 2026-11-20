@@ -126,7 +126,7 @@ def fetch_claude_limits():
                 retry = int(e.headers.get("Retry-After") or 0)
             except ValueError:
                 retry = 0
-            return {"error": "Anthropic 側の回数制限", "code": 429, "retry_after": retry}
+            return {"error": "Anthropic の回数制限中", "code": 429, "retry_after": retry}
         return {"error": f"取得失敗（HTTP {e.code}）", "code": e.code}
     except Exception as e:
         return {"error": f"取得失敗（{type(e).__name__}）"}
@@ -420,9 +420,9 @@ def get_limits(force=False):
     if c.get("fail"):
         if c.get("fetched_at"):
             t = dt.datetime.fromtimestamp(c["fetched_at"]).strftime("%H:%M")
-            out["error"] = f"{c['error']}：{t} 時点の値"
+            out["error"] = f"{c['error']}（{t} の値）"
         else:
-            out["error"] = c.get("error", "") + "：しばらく待って再取得します"
+            out["error"] = c.get("error", "") + "（再取得待ち）"
     return out
 
 

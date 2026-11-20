@@ -41,7 +41,7 @@ Lively はアンインストールするか、壁紙を元に戻してくださ�
 - CPU・メモリ・ネットは Rainmeter が直接測ります。GPU は Windows のパフォーマンスカウンター（全 GPU の 3D エンジン使用率）を読みます。
 - Claude の値は `@Resources\ai_usage_collector.py` が1分ごとに集計して `@Resources\claude.txt` に書き出し、スキンが30秒ごとに読み込みます。
 - Claude の利用枠の問い合わせは10分に1回です。Lively 版と Rainmeter 版の集計プログラムが両方動いていても、結果を共有して問い合わせは1か所にまとめます（`%LOCALAPPDATA%\ClaudeMonitor\limits_cache.json`）。
-- 「Anthropic 側の回数制限」（HTTP 429）と出たときは、15分→30分→60分と間隔をあけて再取得し、その間は前回取れた値を表示します。
+- 「Anthropic の回数制限中」（HTTP 429）と出たときは、15分→30分→60分と間隔をあけて再取得し、その間は前回取れた値を表示します。
 - 集計プログラムは同じフォルダで二重に起動しません（「開始」を何回押しても1つだけ動きます）。取得元の説明は [Lively 版の README](../README.md#claude-の値について) と同じです。
 
 ## 作り直すとき（開発用）
