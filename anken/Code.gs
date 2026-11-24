@@ -13,6 +13,7 @@ var TZ = 'Asia/Tokyo';
 var TOKEN_DAYS = 30;
 var DEFAULT_STATUSES = ['引合い', '見積', '受注', '設計・手配', '施工中', '完了'];
 var PRIORITIES = ['高', '中', '低'];
+var KEEP_MONTHS = 6;   // 終わった案件を残す月数。これを過ぎたらCSVに書き出して削除する
 
 var DEF = {
   projects: {
@@ -48,6 +49,11 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('案件管理')
     .addItem('初期設定（シートを作成）', 'setup')
     .addItem('共通パスワードを設定', 'setPassword')
+    .addSeparator()
+    .addItem('古いデータの整理：Box の保存先アドレスを設定', 'setBoxAddress')
+    .addItem('古いデータの整理：今すぐ実行', 'cleanupNow')
+    .addItem('古いデータの整理：毎月の自動実行をオンにする', 'enableMonthlyCleanup')
+    .addItem('古いデータの整理：毎月の自動実行をオフにする', 'disableMonthlyCleanup')
     .addToUi();
 }
 
@@ -73,9 +79,10 @@ function setup() {
   if (!props.getProperty('TOKEN_SECRET')) {
     props.setProperty('TOKEN_SECRET', Utilities.getUuid() + Utilities.getUuid());
   }
+  // alert は「OK」が押されるまで処理が止まる（エディタから実行するとタイムアウトする）ので、待たない通知にする
   try {
-    SpreadsheetApp.getUi().alert('初期設定が完了しました。\n「利用者」シートに名前（有効＝TRUE）を登録し、共通パスワードを設定してください。');
-  } catch (e) { /* エディタから実行したときは画面がない */ }
+    ss.toast('「利用者」シートに名前（有効＝TRUE）を登録し、共通パスワードを設定してください。', '初期設定が完了しました', 10);
+  } catch (e) { /* 画面がないときは何もしない */ }
 }
 
 function setPassword() {
@@ -91,6 +98,157 @@ function setPassword() {
   // パスワードを変えたら、発行済みのログイン状態も無効にする
   props.setProperty('TOKEN_SECRET', Utilities.getUuid() + Utilities.getUuid());
   ui.alert('共通パスワードを設定しました。利用者は再ログインが必要です。');
+}
+
+/* ---------- 古いデータの整理（CSVに書き出してから削除） ---------- */
+
+/**
+ * 対象：状態が「完了」（並び順が最後の状態）またはボードから外した案件のうち、
+ * 案件とそのタスクの最終更新から KEEP_MONTHS か月を過ぎたもの。案件とタスクをまとめて削除する。
+ * 削除の前に、CSV（案件・タスク）をメールに添付して Box のアップロード用アドレスへ送る
+ * （控えとして、スプレッドシートの所有者にも同じメールを送る）。送信に失敗したら削除しない。
+ */
+
+function setBoxAddress() {
+  var ui = SpreadsheetApp.getUi();
+  var props = PropertiesService.getScriptProperties();
+  var res = ui.prompt('Box の保存先アドレスを設定',
+    'Box の保存先フォルダの「メールでアップロード」用アドレスを入力してください。\n' +
+    '現在：' + (props.getProperty('BOX_UPLOAD_EMAIL') ? '設定済み' : '未設定'), ui.ButtonSet.OK_CANCEL);
+  if (res.getSelectedButton() !== ui.Button.OK) return;
+  var addr = String(res.getResponseText() || '').trim();
+  if (!/^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$/.test(addr)) { ui.alert('メールアドレスの形式ではありません。設定は変更されていません。'); return; }
+  props.setProperty('BOX_UPLOAD_EMAIL', addr);
+  ui.alert('保存先アドレスを設定しました。');
+}
+
+function cleanupNow() {
+  var ui = SpreadsheetApp.getUi();
+  if (!PropertiesService.getScriptProperties().getProperty('BOX_UPLOAD_EMAIL')) {
+    ui.alert('先に「Box の保存先アドレスを設定」を行ってください。'); return;
+  }
+  var cutoff = cutoff_();
+  var plan = archiveOld_(cutoff, true);
+  if (!plan.projects) { ui.alert('削除の対象はありません。\n（終わった案件のうち、最終更新が ' + cutoff.slice(0, 10) + ' より前のものが対象です）'); return; }
+  var ans = ui.alert('古いデータの整理',
+    '案件 ' + plan.projects + ' 件・タスク ' + plan.tasks + ' 件をCSVに書き出して Box へ送り、シートから削除します。\n' +
+    '（終わった案件のうち、最終更新が ' + cutoff.slice(0, 10) + ' より前のもの）\n\n実行しますか？', ui.ButtonSet.OK_CANCEL);
+  if (ans !== ui.Button.OK) return;
+  var done = archiveOld_(cutoff, false);
+  ui.alert('案件 ' + done.projects + ' 件・タスク ' + done.tasks + ' 件を削除しました。\nCSV：' + done.files.join('、'));
+}
+
+/** 毎月1日に自動で実行される（「毎月の自動実行をオンにする」で登録）。 */
+function monthlyCleanup() {
+  if (!PropertiesService.getScriptProperties().getProperty('BOX_UPLOAD_EMAIL')) {
+    throw new Error('Box の保存先アドレスが未設定のため、古いデータの整理を実行しませんでした。');
+  }
+  archiveOld_(cutoff_(), false);
+}
+
+function enableMonthlyCleanup() {
+  var ui = SpreadsheetApp.getUi();
+  if (!PropertiesService.getScriptProperties().getProperty('BOX_UPLOAD_EMAIL')) {
+    ui.alert('先に「Box の保存先アドレスを設定」を行ってください。'); return;
+  }
+  removeCleanupTriggers_();
+  ScriptApp.newTrigger('monthlyCleanup').timeBased().onMonthDay(1).atHour(3).create();
+  ui.alert('毎月1日の午前3時台に自動で実行します。');
+}
+
+function disableMonthlyCleanup() {
+  removeCleanupTriggers_();
+  SpreadsheetApp.getUi().alert('毎月の自動実行をオフにしました。');
+}
+
+function removeCleanupTriggers_() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'monthlyCleanup') ScriptApp.deleteTrigger(t);
+  });
+}
+
+/** 今から KEEP_MONTHS か月前の日時（'yyyy-MM-dd HH:mm:ss'）。 */
+function cutoff_() {
+  var d = new Date();
+  d.setMonth(d.getMonth() - KEEP_MONTHS);
+  return Utilities.formatDate(d, TZ, 'yyyy-MM-dd HH:mm:ss');
+}
+
+/** cutoff より前に終わった案件とそのタスクを、CSVに書き出してから削除する。dryRun は件数だけ返す。 */
+function archiveOld_(cutoff, dryRun) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var done = statusNames_().slice(-1)[0];
+    var pt = table_(DEF.projects);
+    var tt = table_(DEF.tasks);
+    var tasksOf = {};
+    tt.rows.forEach(function (r) { if (r.id) (tasksOf[r.projectId] = tasksOf[r.projectId] || []).push(r); });
+    var projects = pt.rows.filter(function (p) {
+      if (!p.id || !(bool_(p.archived) || p.status === done)) return false;
+      var last = p.updatedAt;
+      (tasksOf[p.id] || []).forEach(function (t) { if (t.updatedAt > last) last = t.updatedAt; });
+      return /^\d{4}-\d{2}-\d{2}/.test(last) && last < cutoff;   // 更新日時が空の行は対象にしない
+    });
+    var tasks = [];
+    var nameOf = {};
+    projects.forEach(function (p) { nameOf[p.id] = p.name; tasks = tasks.concat(tasksOf[p.id] || []); });
+    var result = { projects: projects.length, tasks: tasks.length, files: [] };
+    if (dryRun || !projects.length) return result;
+
+    var stamp = Utilities.formatDate(new Date(), TZ, 'yyyyMMdd-HHmmss');
+    var blobs = [
+      csvBlob_('案件管理ボード_削除データ_案件_' + stamp + '.csv', DEF.projects.fields, projects),
+      // タスクのCSVには、内容がわかるように案件名も付ける
+      csvBlob_('案件管理ボード_削除データ_タスク_' + stamp + '.csv', DEF.tasks.fields.concat([['projectName', '案件名']]),
+        tasks.map(function (t) { var o = { projectName: nameOf[t.projectId] }; for (var k in t) o[k] = t[k]; return o; }))
+    ];
+    result.files = blobs.map(function (b) { return b.getName(); });
+    sendArchive_(blobs, result, cutoff);   // 失敗すると例外になり、下の削除は行わない
+
+    deleteRows_(tt.sheet, tasks);
+    deleteRows_(pt.sheet, projects);
+    SpreadsheetApp.flush();
+    return result;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function sendArchive_(blobs, result, cutoff) {
+  var to = PropertiesService.getScriptProperties().getProperty('BOX_UPLOAD_EMAIL');
+  if (!to) throw new Error('Box の保存先アドレスが未設定です。');
+  var owner = '';
+  try { owner = Session.getEffectiveUser().getEmail(); } catch (e) {}
+  var mail = {
+    to: to,
+    subject: '案件管理ボード 削除データ（案件 ' + result.projects + ' 件・タスク ' + result.tasks + ' 件）',
+    body: '終わった案件のうち、最終更新が ' + cutoff.slice(0, 10) + ' より前のものを、シートから削除しました。\n' +
+      '削除した内容は添付のCSV（UTF-8）のとおりです。\n' +
+      '元に戻すときは、CSVの行を「案件」「タスク」シートの同じ見出しの列に貼り付けてください。',
+    attachments: blobs
+  };
+  if (owner) mail.cc = owner;
+  MailApp.sendEmail(mail);
+}
+
+/** 見出し（シートと同じ名前）付きのCSV。Excel でそのまま開けるように BOM 付き UTF-8・CRLF にする。 */
+function csvBlob_(name, fields, rows) {
+  var lines = [fields.map(function (f) { return csvCell_(f[1]); }).join(',')];
+  rows.forEach(function (r) {
+    lines.push(fields.map(function (f) { return csvCell_(r[f[0]]); }).join(','));
+  });
+  return Utilities.newBlob('\uFEFF' + lines.join('\r\n') + '\r\n', 'text/csv', name);
+}
+
+function csvCell_(v) {
+  return '"' + String(v === undefined || v === null ? '' : v).replace(/"/g, '""') + '"';
+}
+
+/** 下の行から消す（上から消すと行番号がずれる）。 */
+function deleteRows_(sheet, rows) {
+  rows.map(function (r) { return r._row; }).sort(function (a, b) { return b - a; })
+    .forEach(function (n) { sheet.deleteRow(n); });
 }
 
 /* ---------- 画面から呼ぶ関数 ---------- */
