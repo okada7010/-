@@ -65,6 +65,12 @@
   details { margin-top: 10px; }
   summary { cursor: pointer; font-size: 13px; color: var(--sub); }
   .hide { display: none !important; }
+  .banner { font-size: 13px; padding: 10px 12px; border: 1px solid var(--warn); color: var(--warn); border-radius: 10px; background: var(--card); }
+  @media (pointer: coarse) {
+    button, select, input[type=text], input[type=password] { min-height: 44px; }
+    .timer { font-size: 34px; }
+    input[type=checkbox] { width: 20px; height: 20px; vertical-align: middle; }
+  }
 </style>
 </head>
 <body>
@@ -74,6 +80,7 @@
 </header>
 
 <main>
+  <div class="banner hide" id="mobileNote">スマホでご利用の場合：録音中は画面を点けたまま、このページを開いたままにしてください（画面ロックや他のアプリへの切り替えで録音が止まることがあります）。文字起こしはスマホでは「高速」のみ現実的で、長い音声はPCでの処理をおすすめします。</div>
   <!-- ① 録音 -->
   <section>
     <h2><span class="num">1</span>録音</h2>
@@ -93,6 +100,7 @@
       <div class="row">
         <button id="btnSaveOrig">録音データを保存（<span id="origExt">webm</span>）</button>
         <button id="btnSaveWav">WAVで保存（16kHz・モノラル）</button>
+        <button id="btnShare" class="hide">共有・他のアプリへ送る</button>
       </div>
     </div>
     <div class="msg" id="recMsg"></div>
@@ -180,6 +188,8 @@
 const $ = (id) => document.getElementById(id);
 const TRANSFORMERS_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
 const SR = 16000;
+const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+  (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
 
 const MODELS = {
   base:  { id: 'onnx-community/whisper-base',           gpu: { encoder_model: 'fp32', decoder_model_merged: 'q4' }, gpuOnly: false },
@@ -300,7 +310,7 @@ async function recStart() {
   rec.recorder.onstop = recFinish;
   rec.recorder.onerror = (e) => setMsg($('recMsg'), '録音エラー：' + ((e.error && e.error.name) || '不明'), 'err');
   rec.recorder.start(1000);
-  rec.startedAt = Date.now(); rec.pausedMs = 0; rec.pauseAt = 0;
+  rec.startedAt = Date.now(); rec.pausedMs = 0; rec.pauseAt = 0; rec.wasHidden = false;
   rec.timerId = setInterval(() => { $('recTimer').textContent = fmtHMS(recElapsed()); }, 250);
   startMeter(rec.stream);
   if (navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { rec.wake = w; }).catch(() => {});
@@ -334,7 +344,12 @@ function recFinish() {
   p.src = URL.createObjectURL(rec.blob);
   $('origExt').textContent = rec.ext;
   $('recResult').classList.remove('hide');
-  setMsg($('recMsg'), '録音が完了しました（' + (rec.blob.size / 1048576).toFixed(1) + ' MB）。保存してから文字起こしに進んでください。', 'ok');
+  let canShare = false;
+  try { canShare = IS_MOBILE && !!navigator.canShare && navigator.canShare({ files: [recFile()] }); } catch (_) {}
+  $('btnShare').classList.toggle('hide', !canShare);
+  setMsg($('recMsg'), '録音が完了しました（' + (rec.blob.size / 1048576).toFixed(1) + ' MB）。' +
+    (rec.wasHidden ? '※録音中に画面が切り替わったため、一部が録音されていない可能性があります。' : '') +
+    '保存してから文字起こしに進んでください。', rec.wasHidden ? 'err' : 'ok');
   setSource(rec.blob, rec.name + '.' + rec.ext, true);
 }
 $('btnRecStart').onclick = recStart;
@@ -351,6 +366,26 @@ $('btnSaveWav').onclick = async () => {
     setMsg($('recMsg'), 'WAVを保存しました。', 'ok');
   } catch (e) { setMsg($('recMsg'), 'WAV変換に失敗しました：' + (e.message || e), 'err'); }
 };
+function recFile() {
+  return new File([rec.blob], rec.name + '.' + rec.ext, { type: (rec.mime || 'audio/webm').split(';')[0] });
+}
+$('btnShare').onclick = async () => {
+  if (!rec.blob) return;
+  try {
+    await navigator.share({ files: [recFile()], title: rec.name });
+    rec.saved = true;
+    setMsg($('recMsg'), '共有しました。', 'ok');
+  } catch (e) {
+    if (e.name !== 'AbortError') setMsg($('recMsg'), '共有できませんでした。「録音データを保存」をお使いください。', 'err');
+  }
+};
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && rec.recorder && rec.recorder.state === 'recording') rec.wasHidden = true;
+  if (!document.hidden && rec.recorder && rec.recorder.state !== 'inactive') {
+    if (navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { rec.wake = w; }).catch(() => {});
+    if (rec.wasHidden) setMsg($('recMsg'), '録音中に画面が切り替わりました。その間の音声が録音されていない可能性があります。', 'err');
+  }
+});
 window.addEventListener('beforeunload', (e) => {
   const recording = rec.recorder && rec.recorder.state !== 'inactive';
   if (recording || (rec.blob && !rec.saved)) { e.preventDefault(); e.returnValue = ''; }
@@ -771,6 +806,13 @@ $('btnSaveSum').onclick = () => {
 
 // テスト・確認用（画面操作には影響しません）
 window.__app = { splitSegments, encodeWav, decodeTo16k, rec, tr, buildSummaryRequest };
+if (IS_MOBILE) {
+  $('mobileNote').classList.remove('hide');
+  $('modelSelect').value = 'base';
+}
+if (!window.isSecureContext) {
+  setMsg($('recMsg'), 'このページはhttpsで開かれていないため、録音できない場合があります。', 'err');
+}
 recUi('idle');
 listMics();
 })();
