@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>録音・文字起こし・要約ツール</title>
+<style>
+  :root {
+    --bg: #f3f5f8; --card: #ffffff; --ink: #1c2530; --sub: #5d6b7a; --line: #d9e0e8;
+    --accent: #0b6bcb; --accent-ink: #ffffff; --rec: #d92d20; --ok: #18794e; --warn: #b54708;
+    --field: #f8fafc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161c; --card: #1b212a; --ink: #e6ebf1; --sub: #9aa7b5; --line: #303a47;
+      --accent: #4a9ff5; --accent-ink: #0c1117; --rec: #f97066; --ok: #47c28b; --warn: #f5a524;
+      --field: #141a21;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Yu Gothic UI", "Meiryo", "Hiragino Sans", system-ui, sans-serif;
+    font-size: 15px; line-height: 1.6;
+  }
+  header { padding: 20px 16px 4px; max-width: 920px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  header p { margin: 0; color: var(--sub); font-size: 13px; }
+  main { max-width: 920px; margin: 0 auto; padding: 12px 16px 48px; display: grid; gap: 16px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  h2 { font-size: 17px; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
+  .num {
+    width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink);
+    display: inline-grid; place-items: center; font-size: 14px; font-weight: 700; flex: none;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .row + .row, .row + .field, .field + .row, .field + .field { margin-top: 10px; }
+  button {
+    font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--field); color: var(--ink); cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button.rec { background: var(--rec); color: #fff; border-color: var(--rec); font-weight: 600; }
+  select, input[type=text], input[type=password], textarea {
+    font: inherit; color: var(--ink); background: var(--field);
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px;
+  }
+  textarea { width: 100%; min-height: 200px; resize: vertical; line-height: 1.7; }
+  label { font-size: 13px; color: var(--sub); }
+  .field label { display: block; margin-bottom: 4px; }
+  .timer { font-size: 30px; font-variant-numeric: tabular-nums; font-weight: 700; min-width: 124px; }
+  .state { font-size: 13px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--sub); }
+  .state.on { color: var(--rec); border-color: var(--rec); }
+  .meter { flex: 1; min-width: 140px; height: 10px; background: var(--field); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .meter > i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .08s linear; }
+  progress { width: 100%; height: 10px; accent-color: var(--accent); }
+  .msg { font-size: 13px; color: var(--sub); min-height: 1.4em; margin-top: 8px; white-space: pre-wrap; }
+  .msg.err { color: var(--rec); }
+  .msg.ok { color: var(--ok); }
+  .note { font-size: 12.5px; color: var(--sub); margin: 10px 0 0; }
+  audio { width: 100%; margin-top: 10px; }
+  .src { font-size: 13px; padding: 8px 10px; border: 1px dashed var(--line); border-radius: 8px; background: var(--field); }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; font-size: 13px; color: var(--sub); }
+  .hide { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>録音・文字起こし・要約ツール</h1>
+  <p>録音 → 音声ファイル出力 → 文字起こし → 要約 を1画面で行います。録音と文字起こしはこのPC内で処理され、音声は外部に送信されません。</p>
+</header>
+
+<main>
+  <!-- ① 録音 -->
+  <section>
+    <h2><span class="num">1</span>録音</h2>
+    <div class="row">
+      <span class="timer" id="recTimer">00:00:00</span>
+      <span class="state" id="recState">待機中</span>
+      <div class="meter" title="入力レベル"><i id="recLevel"></i></div>
+    </div>
+    <div class="row">
+      <button class="rec" id="btnRecStart">● 録音開始</button>
+      <button id="btnRecPause" disabled>一時停止</button>
+      <button id="btnRecStop" disabled>■ 停止</button>
+      <label>マイク <select id="micSelect"><option value="">既定のマイク</option></select></label>
+    </div>
+    <div id="recResult" class="hide">
+      <audio id="recPlayer" controls></audio>
+      <div class="row">
+        <button id="btnSaveOrig">録音データを保存（<span id="origExt">webm</span>）</button>
+        <button id="btnSaveWav">WAVで保存（16kHz・モノラル）</button>
+      </div>
+    </div>
+    <div class="msg" id="recMsg"></div>
+  </section>
+
+  <!-- ② 文字起こし -->
+  <section>
+    <h2><span class="num">2</span>文字起こし</h2>
+    <div class="src" id="srcInfo">音声：未選択（上で録音するか、音声ファイルを選択してください）</div>
+    <div class="row">
+      <button id="btnPickFile">音声ファイルを選択…</button>
+      <input type="file" id="fileInput" accept="audio/*,video/mp4,video/webm,.m4a,.mp3,.wav,.webm,.ogg,.aac,.flac" class="hide">
+      <label>精度 <select id="modelSelect">
+        <option value="base">高速（base・約80MB）</option>
+        <option value="small" selected>標準（small・約250MB）</option>
+        <option value="turbo">高精度（large-v3-turbo・約850MB／GPU必須）</option>
+      </select></label>
+      <label>言語 <select id="langSelect">
+        <option value="japanese" selected>日本語</option>
+        <option value="english">英語</option>
+        <option value="">自動判定</option>
+      </select></label>
+      <label><input type="checkbox" id="chkStamp" checked> 時刻を付ける</label>
+    </div>
+    <div class="row">
+      <button class="primary" id="btnTranscribe" disabled>文字起こし開始</button>
+      <button id="btnCancel" disabled>中止</button>
+    </div>
+    <div class="field"><progress id="trProgress" value="0" max="1"></progress></div>
+    <div class="msg" id="trMsg"></div>
+    <div class="field">
+      <label for="trText">文字起こし結果（編集できます。貼り付けも可）</label>
+      <textarea id="trText" placeholder="ここに文字起こし結果が表示されます"></textarea>
+    </div>
+    <div class="row">
+      <button id="btnCopyTr">コピー</button>
+      <button id="btnSaveTr">テキスト保存（.txt）</button>
+    </div>
+    <p class="note">初回のみ音声認識モデルをダウンロードします（インターネット接続が必要。2回目以降はブラウザに保存されたものを使用）。処理時間はPC性能に依存し、GPU（WebGPU）非対応のPCでは録音時間と同程度以上かかる場合があります。固有名詞・同音異義語は誤変換があるため確認してください。</p>
+  </section>
+
+  <!-- ③ 要約 -->
+  <section>
+    <h2><span class="num">3</span>要約</h2>
+    <div class="row">
+      <label>形式 <select id="sumStyle">
+        <option value="minutes" selected>議事録（決定事項・宿題）</option>
+        <option value="brief">要点要約</option>
+        <option value="bullets">箇条書き</option>
+      </select></label>
+      <input type="text" id="sumExtra" placeholder="追加の指示（任意）例：設備名ごとにまとめる" style="flex:1; min-width:220px">
+    </div>
+    <div class="row">
+      <button class="primary" id="btnCopyPrompt">要約依頼文をコピー（Claudeに貼り付け）</button>
+      <button id="btnApiSum">アプリ内で要約（APIキー使用）</button>
+      <button id="btnApiStop" disabled>中止</button>
+    </div>
+    <details id="apiBox">
+      <summary>APIキー設定（アプリ内で要約する場合のみ）</summary>
+      <div class="row">
+        <input type="password" id="apiKey" placeholder="Claude APIキー" autocomplete="off" style="flex:1; min-width:240px">
+        <label>モデル <select id="apiModel">
+          <option value="claude-opus-5-5" selected>Claude Opus 5.5（高品質）</option>
+          <option value="claude-sonnet-5-5">Claude Sonnet 5.5</option>
+          <option value="claude-haiku-5-5">Claude Haiku 5.5（低コスト）</option>
+        </select></label>
+      </div>
+      <p class="note">APIキーは保存されません（ページを閉じると消えます）。アプリ内要約では、文字起こしテキストが Claude API へ送信され、従量課金が発生します。</p>
+    </details>
+    <div class="msg" id="sumMsg"></div>
+    <div class="field">
+      <label for="sumText">要約結果（Claudeの回答を貼り付けて保存することもできます）</label>
+      <textarea id="sumText" placeholder="ここに要約が表示されます"></textarea>
+    </div>
+    <div class="row">
+      <button id="btnCopySum">コピー</button>
+      <button id="btnSaveSum">要約を保存（.md）</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+'use strict';
+const $ = (id) => document.getElementById(id);
+const TRANSFORMERS_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
+const SR = 16000;
+
+const MODELS = {
+  base:  { id: 'onnx-community/whisper-base',           gpu: { encoder_model: 'fp32', decoder_model_merged: 'q4' }, gpuOnly: false },
+  small: { id: 'onnx-community/whisper-small',          gpu: { encoder_model: 'fp32', decoder_model_merged: 'q4' }, gpuOnly: false },
+  turbo: { id: 'onnx-community/whisper-large-v3-turbo', gpu: { encoder_model: 'fp16', decoder_model_merged: 'q4' }, gpuOnly: true },
+};
+
+// ---------- 共通 ----------
+function setMsg(el, text, kind) { el.textContent = text || ''; el.className = 'msg' + (kind ? ' ' + kind : ''); }
+function pad(n) { return String(n).padStart(2, '0'); }
+function fmtHMS(sec) { sec = Math.floor(sec); return pad(Math.floor(sec / 3600)) + ':' + pad(Math.floor(sec / 60) % 60) + ':' + pad(sec % 60); }
+function fmtStamp(sec) {
+  sec = Math.floor(sec);
+  const h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, s = sec % 60;
+  return h > 0 ? h + ':' + pad(m) + ':' + pad(s) : pad(m) + ':' + pad(s);
+}
+function fileStamp(d) {
+  d = d || new Date();
+  return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '_' + pad(d.getHours()) + pad(d.getMinutes());
+}
+function saveBlob(name, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch (_) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (__) {}
+    ta.remove(); return ok;
+  }
+}
+
+// ---------- ① 録音 ----------
+const rec = { stream: null, recorder: null, chunks: [], blob: null, mime: '', ext: 'webm',
+              startedAt: 0, pausedMs: 0, pauseAt: 0, timerId: 0, actx: null, raf: 0, saved: true, name: '', wake: null };
+
+function pickMime() {
+  const c = [['audio/webm;codecs=opus', 'webm'], ['audio/webm', 'webm'], ['audio/mp4', 'm4a'], ['audio/ogg;codecs=opus', 'ogg']];
+  for (const [m, e] of c) if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return [m, e];
+  return ['', 'webm'];
+}
+function recElapsed() {
+  if (!rec.startedAt) return 0;
+  const now = rec.pauseAt || Date.now();
+  return (now - rec.startedAt - rec.pausedMs) / 1000;
+}
+function recUi(state) {
+  const on = state === 'rec', paused = state === 'pause';
+  $('btnRecStart').disabled = on || paused;
+  $('btnRecPause').disabled = !(on || paused);
+  $('btnRecStop').disabled = !(on || paused);
+  $('btnRecPause').textContent = paused ? '再開' : '一時停止';
+  $('recState').textContent = on ? '● 録音中' : paused ? '一時停止中' : '待機中';
+  $('recState').className = 'state' + (on ? ' on' : '');
+  $('micSelect').disabled = on || paused;
+}
+async function listMics() {
+  try {
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+    const sel = $('micSelect'), cur = sel.value;
+    sel.innerHTML = '<option value="">既定のマイク</option>';
+    devs.forEach((d, i) => {
+      if (!d.deviceId || d.deviceId === 'default') return;
+      const o = document.createElement('option');
+      o.value = d.deviceId; o.textContent = d.label || ('マイク ' + (i + 1));
+      sel.appendChild(o);
+    });
+    sel.value = cur;
+  } catch (_) {}
+}
+function startMeter(stream) {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  rec.actx = new AC();
+  const an = rec.actx.createAnalyser(); an.fftSize = 1024;
+  rec.actx.createMediaStreamSource(stream).connect(an);
+  const buf = new Float32Array(an.fftSize);
+  const tick = () => {
+    an.getFloatTimeDomainData(buf);
+    let peak = 0;
+    for (let i = 0; i < buf.length; i++) { const v = Math.abs(buf[i]); if (v > peak) peak = v; }
+    $('recLevel').style.width = Math.min(100, Math.round(peak * 140)) + '%';
+    rec.raf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+function stopMeter() {
+  cancelAnimationFrame(rec.raf);
+  $('recLevel').style.width = '0';
+  if (rec.actx) { rec.actx.close().catch(() => {}); rec.actx = null; }
+}
+
+async function recStart() {
+  if (!navigator.mediaDevices || !window.MediaRecorder) {
+    setMsg($('recMsg'), 'このブラウザは録音に対応していません。Chrome または Edge をお使いください。', 'err'); return;
+  }
+  if (rec.blob && !rec.saved && !confirm('保存していない録音があります。破棄して新しく録音しますか？')) return;
+  try {
+    const dev = $('micSelect').value;
+    rec.stream = await navigator.mediaDevices.getUserMedia({
+      audio: Object.assign({ echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+                           dev ? { deviceId: { exact: dev } } : {})
+    });
+  } catch (e) {
+    setMsg($('recMsg'), 'マイクを使用できません（' + (e.name || e) + '）。ブラウザのマイク許可を確認してください。', 'err'); return;
+  }
+  listMics();
+  const [mime, ext] = pickMime();
+  rec.mime = mime; rec.ext = ext; rec.chunks = []; rec.blob = null;
+  rec.recorder = new MediaRecorder(rec.stream, mime ? { mimeType: mime, audioBitsPerSecond: 96000 } : undefined);
+  rec.recorder.ondataavailable = (e) => { if (e.data && e.data.size) rec.chunks.push(e.data); };
+  rec.recorder.onstop = recFinish;
+  rec.recorder.onerror = (e) => setMsg($('recMsg'), '録音エラー：' + ((e.error && e.error.name) || '不明'), 'err');
+  rec.recorder.start(1000);
+  rec.startedAt = Date.now(); rec.pausedMs = 0; rec.pauseAt = 0;
+  rec.timerId = setInterval(() => { $('recTimer').textContent = fmtHMS(recElapsed()); }, 250);
+  startMeter(rec.stream);
+  if (navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { rec.wake = w; }).catch(() => {});
+  $('recResult').classList.add('hide');
+  setMsg($('recMsg'), '録音中です。終了したら「停止」を押してください。');
+  recUi('rec');
+}
+function recPause() {
+  if (!rec.recorder) return;
+  if (rec.recorder.state === 'recording') { rec.recorder.pause(); rec.pauseAt = Date.now(); recUi('pause'); }
+  else if (rec.recorder.state === 'paused') { rec.recorder.resume(); rec.pausedMs += Date.now() - rec.pauseAt; rec.pauseAt = 0; recUi('rec'); }
+}
+function recStop() {
+  if (!rec.recorder || rec.recorder.state === 'inactive') return;
+  if (rec.pauseAt) { rec.pausedMs += Date.now() - rec.pauseAt; rec.pauseAt = 0; }
+  $('recTimer').textContent = fmtHMS(recElapsed());
+  rec.recorder.stop();
+}
+function recFinish() {
+  clearInterval(rec.timerId);
+  stopMeter();
+  if (rec.stream) rec.stream.getTracks().forEach(t => t.stop());
+  if (rec.wake) { rec.wake.release().catch(() => {}); rec.wake = null; }
+  recUi('idle');
+  rec.blob = new Blob(rec.chunks, { type: rec.mime || 'audio/webm' });
+  rec.chunks = [];
+  rec.saved = false;
+  rec.name = '録音_' + fileStamp();
+  const p = $('recPlayer');
+  if (p.src) URL.revokeObjectURL(p.src);
+  p.src = URL.createObjectURL(rec.blob);
+  $('origExt').textContent = rec.ext;
+  $('recResult').classList.remove('hide');
+  setMsg($('recMsg'), '録音が完了しました（' + (rec.blob.size / 1048576).toFixed(1) + ' MB）。保存してから文字起こしに進んでください。', 'ok');
+  setSource(rec.blob, rec.name + '.' + rec.ext, true);
+}
+$('btnRecStart').onclick = recStart;
+$('btnRecPause').onclick = recPause;
+$('btnRecStop').onclick = recStop;
+$('btnSaveOrig').onclick = () => { if (rec.blob) { saveBlob(rec.name + '.' + rec.ext, rec.blob); rec.saved = true; } };
+$('btnSaveWav').onclick = async () => {
+  if (!rec.blob) return;
+  try {
+    setMsg($('recMsg'), 'WAVに変換しています…');
+    const pcm = await decodeTo16k(rec.blob);
+    saveBlob(rec.name + '.wav', encodeWav(pcm, SR));
+    rec.saved = true;
+    setMsg($('recMsg'), 'WAVを保存しました。', 'ok');
+  } catch (e) { setMsg($('recMsg'), 'WAV変換に失敗しました：' + (e.message || e), 'err'); }
+};
+window.addEventListener('beforeunload', (e) => {
+  const recording = rec.recorder && rec.recorder.state !== 'inactive';
+  if (recording || (rec.blob && !rec.saved)) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// ---------- 音声の変換 ----------
+async function decodeTo16k(blob) {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AC({ sampleRate: SR });
+  try {
+    const ab = await ctx.decodeAudioData(await blob.arrayBuffer());
+    const n = ab.numberOfChannels, len = ab.length;
+    const out = new Float32Array(len);
+    for (let c = 0; c < n; c++) {
+      const d = ab.getChannelData(c);
+      for (let i = 0; i < len; i++) out[i] += d[i];
+    }
+    if (n > 1) for (let i = 0; i < len; i++) out[i] /= n;
+    if (ab.sampleRate === SR) return out;
+    // 念のため：サンプルレート指定が効かない環境向けの線形リサンプル
+    const ratio = ab.sampleRate / SR, m = Math.floor(len / ratio), rs = new Float32Array(m);
+    for (let i = 0; i < m; i++) {
+      const x = i * ratio, i0 = Math.floor(x), f = x - i0;
+      rs[i] = out[i0] * (1 - f) + (out[Math.min(i0 + 1, len - 1)] || 0) * f;
+    }
+    return rs;
+  } finally { ctx.close().catch(() => {}); }
+}
+function encodeWav(pcm, sr) {
+  const buf = new ArrayBuffer(44 + pcm.length * 2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + pcm.length * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  w(36, 'data'); v.setUint32(40, pcm.length * 2, true);
+  for (let i = 0, o = 44; i < pcm.length; i++, o += 2) {
+    const s = Math.max(-1, Math.min(1, pcm[i]));
+    v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+// 無音に近い位置で区切り、30秒以内の区間に分割する
+function splitSegments(pcm, sr) {
+  const MAX = 28 * sr, MIN = 16 * sr, FR = Math.floor(0.1 * sr);
+  const segs = [];
+  let pos = 0;
+  while (pos < pcm.length) {
+    let end = Math.min(pos + MAX, pcm.length);
+    if (end < pcm.length) {
+      let best = end, bestE = Infinity;
+      for (let f = pos + MIN; f + FR <= pos + MAX; f += FR) {
+        let e = 0;
+        for (let i = f; i < f + FR; i++) e += pcm[i] * pcm[i];
+        if (e <= bestE) { bestE = e; best = f + (FR >> 1); }
+      }
+      end = best;
+    }
+    segs.push([pos, end]);
+    pos = end;
+  }
+  return segs;
+}
+function rms(pcm, a, b) {
+  let e = 0;
+  for (let i = a; i < b; i++) e += pcm[i] * pcm[i];
+  return Math.sqrt(e / Math.max(1, b - a));
+}
+
+// ---------- 音声認識エンジン（Whisper／ブラウザ内） ----------
+const WORKER_SRC = `
+import { pipeline, env } from '${TRANSFORMERS_URL}';
+env.allowLocalModels = false;
+let asr = null;
+self.onmessage = async (ev) => {
+  const m = ev.data;
+  try {
+    if (m.type === 'load') {
+      asr = null;
+      asr = await pipeline('automatic-speech-recognition', m.model, {
+        device: m.device, dtype: m.dtype,
+        progress_callback: (p) => self.postMessage({ type: 'progress', p }),
+      });
+      self.postMessage({ type: 'ready' });
+    } else if (m.type === 'run') {
+      const out = await asr(m.audio, m.opts);
+      self.postMessage({ type: 'result', id: m.id, text: (out && out.text) || '' });
+    }
+  } catch (err) {
+    self.postMessage({ type: 'error', id: m.id, message: String((err && err.message) || err) });
+  }
+};
+self.postMessage({ type: 'boot' });
+`;
+
+const engine = { worker: null, main: null, loadedKey: '', onProgress: null, pending: null, seq: 0 };
+
+function workerCall(msg, transfer) {
+  return new Promise((resolve, reject) => {
+    engine.pending = { resolve, reject };
+    engine.worker.postMessage(msg, transfer || []);
+  });
+}
+function bootWorker() {
+  return new Promise((resolve, reject) => {
+    let w;
+    try {
+      const url = URL.createObjectURL(new Blob([WORKER_SRC], { type: 'text/javascript' }));
+      w = new Worker(url, { type: 'module' });
+    } catch (e) { reject(e); return; }
+    const timer = setTimeout(() => { w.terminate(); reject(new Error('worker timeout')); }, 60000);
+    w.onerror = (e) => {
+      clearTimeout(timer);
+      if (engine.worker === w && engine.pending) { engine.pending.reject(new Error(e.message || 'worker error')); engine.pending = null; }
+      else if (engine.worker !== w) { w.terminate(); reject(new Error(e.message || 'worker error')); }
+    };
+    w.onmessage = (ev) => {
+      const m = ev.data;
+      if (m.type === 'boot') { clearTimeout(timer); engine.worker = w; resolve(); return; }
+      if (m.type === 'progress') { if (engine.onProgress) engine.onProgress(m.p); return; }
+      const p = engine.pending; if (!p) return;
+      engine.pending = null;
+      if (m.type === 'error') p.reject(new Error(m.message)); else p.resolve(m);
+    };
+  });
+}
+async function engineLoad(modelKey, device, onProgress) {
+  const def = MODELS[modelKey];
+  const key = modelKey + '/' + device;
+  if (engine.loadedKey === key) return;
+  engine.loadedKey = '';
+  engine.onProgress = onProgress;
+  const dtype = device === 'webgpu' ? def.gpu : 'q8';
+  if (!engine.worker && !engine.main) {
+    try { await bootWorker(); }
+    catch (_) {
+      // Workerが使えない環境（一部のローカル実行など）は画面側で処理する
+      const lib = await import(TRANSFORMERS_URL);
+      lib.env.allowLocalModels = false;
+      engine.main = { lib, asr: null };
+    }
+  }
+  if (engine.worker) {
+    await workerCall({ type: 'load', model: def.id, device, dtype });
+  } else {
+    engine.main.asr = await engine.main.lib.pipeline('automatic-speech-recognition', def.id,
+      { device, dtype, progress_callback: onProgress });
+  }
+  engine.loadedKey = key;
+}
+async function engineRun(audio, opts) {
+  if (engine.worker) {
+    const r = await workerCall({ type: 'run', id: ++engine.seq, audio, opts }, [audio.buffer]);
+    return r.text;
+  }
+  const out = await engine.main.asr(audio, opts);
+  return (out && out.text) || '';
+}
+function engineReset() {
+  if (engine.worker) { engine.worker.terminate(); engine.worker = null; }
+  engine.pending = null; engine.loadedKey = '';
+}
+async function hasWebGPU() {
+  try { return !!(navigator.gpu && await navigator.gpu.requestAdapter()); } catch (_) { return false; }
+}
+
+// ---------- ② 文字起こし ----------
+const tr = { source: null, sourceName: '', running: false, cancel: false, segs: [], dirty: false };
+
+function setSource(blob, name, fromRec) {
+  tr.source = blob; tr.sourceName = name;
+  $('srcInfo').textContent = '音声：' + name + '（' + (blob.size / 1048576).toFixed(1) + ' MB' + (fromRec ? '・今回の録音' : '') + '）';
+  $('btnTranscribe').disabled = tr.running;
+}
+$('btnPickFile').onclick = () => $('fileInput').click();
+$('fileInput').onchange = (e) => {
+  const f = e.target.files[0];
+  if (f) setSource(f, f.name, false);
+  e.target.value = '';
+};
+function renderTranscript() {
+  const stamp = $('chkStamp').checked;
+  $('trText').value = tr.segs.map(s => (stamp ? '[' + fmtStamp(s.t) + '] ' : '') + s.text).join('\n');
+  tr.dirty = false;
+}
+$('trText').addEventListener('input', () => { tr.dirty = true; });
+$('chkStamp').onchange = () => {
+  if (!tr.segs.length) return;
+  if (tr.dirty && !confirm('手作業で編集した内容は元に戻ります。表示を切り替えますか？')) {
+    $('chkStamp').checked = !$('chkStamp').checked; return;
+  }
+  renderTranscript();
+};
+function cleanText(t) {
+  return String(t || '').replace(/\s+/g, ' ').trim();
+}
+function loadProgressHandler() {
+  const files = {};
+  return (p) => {
+    if (!p || !p.file) return;
+    if (p.status === 'progress' || p.status === 'done') {
+      files[p.file] = { loaded: p.status === 'done' ? (p.total || (files[p.file] || {}).total || 0) : (p.loaded || 0),
+                        total: p.total || (files[p.file] || {}).total || 0 };
+      let l = 0, t = 0;
+      for (const k in files) { l += files[k].loaded; t += files[k].total; }
+      if (t > 0) {
+        $('trProgress').value = l / t;
+        setMsg($('trMsg'), '音声認識モデルを準備中… ' + (l / 1048576).toFixed(0) + ' / ' + (t / 1048576).toFixed(0) + ' MB（初回のみダウンロード）');
+      }
+    }
+  };
+}
+async function transcribe() {
+  if (!tr.source || tr.running) return;
+  if ($('trText').value.trim() && !confirm('現在の文字起こし結果を上書きします。よろしいですか？')) return;
+  tr.running = true; tr.cancel = false; tr.segs = [];
+  $('btnTranscribe').disabled = true; $('btnCancel').disabled = false;
+  $('trProgress').value = 0; $('trText').value = '';
+  const t0 = Date.now();
+  try {
+    const modelKey = $('modelSelect').value;
+    const gpu = await hasWebGPU();
+    if (MODELS[modelKey].gpuOnly && !gpu) {
+      throw new Error('このPC／ブラウザはGPU処理（WebGPU）に対応していないため「高精度」は使えません。「標準」または「高速」を選んでください。');
+    }
+    setMsg($('trMsg'), '音声を読み込んでいます…');
+    let pcm;
+    try { pcm = await decodeTo16k(tr.source); }
+    catch (e) { throw new Error('この音声ファイルは読み込めませんでした（形式未対応の可能性）。mp3 / m4a / wav / webm をお試しください。'); }
+    if (!pcm.length) throw new Error('音声データが空です。');
+    const total = pcm.length / SR;
+
+    let device = gpu ? 'webgpu' : 'wasm';
+    setMsg($('trMsg'), '音声認識モデルを準備中…（初回のみダウンロード）');
+    try { await engineLoad(modelKey, device, loadProgressHandler()); }
+    catch (e) {
+      if (device !== 'webgpu') throw e;
+      engineReset(); device = 'wasm';
+      setMsg($('trMsg'), 'GPUでの準備に失敗したため、CPU処理に切り替えています…');
+      await engineLoad(modelKey, device, loadProgressHandler());
+    }
+    if (tr.cancel) throw new Error('__cancel__');
+
+    const lang = $('langSelect').value;
+    const opts = Object.assign({ task: 'transcribe' }, lang ? { language: lang } : {});
+    const segs = splitSegments(pcm, SR);
+    $('trProgress').value = 0;
+    for (let i = 0; i < segs.length; i++) {
+      if (tr.cancel) throw new Error('__cancel__');
+      const [a, b] = segs[i];
+      const el = (Date.now() - t0) / 1000;
+      setMsg($('trMsg'), '文字起こし中… ' + fmtStamp(a / SR) + ' / ' + fmtStamp(total) +
+        '（' + (device === 'webgpu' ? 'GPU' : 'CPU') + '処理・経過 ' + fmtStamp(el) + '）');
+      if (rms(pcm, a, b) >= 0.0015) {   // ほぼ無音の区間は誤認識の元になるため飛ばす
+        const text = cleanText(await engineRun(pcm.slice(a, b), opts));
+        if (text) {
+          tr.segs.push({ t: a / SR, text });
+          if (!tr.dirty) renderTranscript();
+          $('trText').scrollTop = $('trText').scrollHeight;
+        }
+      }
+      $('trProgress').value = (i + 1) / segs.length;
+    }
+    renderTranscript();
+    setMsg($('trMsg'), '文字起こしが完了しました（音声 ' + fmtStamp(total) + '／処理 ' + fmtStamp((Date.now() - t0) / 1000) + '）。内容を確認・修正してください。', 'ok');
+  } catch (e) {
+    if (e.message === '__cancel__') {
+      if (tr.segs.length) renderTranscript();
+      setMsg($('trMsg'), '中止しました（途中までの結果を表示しています）。');
+    } else {
+      const net = /fetch|network|load|import|Failed/i.test(e.message || '');
+      setMsg($('trMsg'), 'エラー：' + (e.message || e) + (net ? '\n（モデルのダウンロードにはインターネット接続が必要です。社内ネットワークで cdn.jsdelivr.net / huggingface.co が遮断されていないか確認してください）' : ''), 'err');
+    }
+  } finally {
+    tr.running = false;
+    $('btnTranscribe').disabled = !tr.source; $('btnCancel').disabled = true;
+  }
+}
+$('btnTranscribe').onclick = transcribe;
+$('btnCancel').onclick = () => {
+  tr.cancel = true;
+  setMsg($('trMsg'), '中止しています…');
+};
+$('btnCopyTr').onclick = async () => {
+  if (!$('trText').value.trim()) return;
+  setMsg($('trMsg'), (await copyText($('trText').value)) ? 'コピーしました。' : 'コピーできませんでした。', 'ok');
+};
+function baseName() {
+  return (tr.sourceName ? tr.sourceName.replace(/\.[^.]+$/, '') : '音声_' + fileStamp());
+}
+$('btnSaveTr').onclick = () => {
+  const t = $('trText').value;
+  if (!t.trim()) return;
+  saveBlob(baseName() + '_文字起こし.txt', new Blob(['﻿' + t.replace(/\n/g, '\r\n')], { type: 'text/plain;charset=utf-8' }));
+};
+
+// ---------- ③ 要約 ----------
+const SUM_SYSTEM = 'あなたは日本語の会議・打合せ記録の整理を専門とするアシスタントです。' +
+  '入力は音声認識による文字起こしで、誤変換・同音異義語の誤り・言いよどみを含みます。文脈から妥当に補って読み取ってください。' +
+  '文字起こしに無い事実は書かず、聞き取りが不確かな固有名詞・数値には「（要確認）」と付けてください。出力はMarkdown、です・ます調で、前置きは不要です。';
+const SUM_STYLES = {
+  minutes: '次の文字起こしを議事録としてまとめてください。構成は「## 概要」「## 議題ごとの要点」「## 決定事項」「## 宿題・次のアクション（担当・期限が分かれば記載）」「## 確認が必要な点」とします。該当が無い項目は「なし」と書いてください。',
+  brief: '次の文字起こしの要点を、全体を3〜5文でまとめた「## 概要」と、重要な点を並べた「## 要点」に分けて要約してください。',
+  bullets: '次の文字起こしの内容を、話題ごとに見出しを付けた箇条書きで簡潔に整理してください。',
+};
+function buildSummaryRequest() {
+  const text = $('trText').value.trim();
+  if (!text) return null;
+  const extra = $('sumExtra').value.trim();
+  return SUM_STYLES[$('sumStyle').value] + (extra ? '\n追加の指示：' + extra : '') +
+    '\n\n<文字起こし>\n' + text + '\n</文字起こし>';
+}
+$('btnCopyPrompt').onclick = async () => {
+  const req = buildSummaryRequest();
+  if (!req) { setMsg($('sumMsg'), '文字起こし結果がありません。', 'err'); return; }
+  const ok = await copyText(SUM_SYSTEM + '\n\n' + req);
+  setMsg($('sumMsg'), ok ? '要約依頼文をコピーしました。Claudeのチャットに貼り付けて送信し、回答を下の欄に貼り付けると保存できます。' : 'コピーできませんでした。', ok ? 'ok' : 'err');
+};
+
+let sumAbort = null;
+async function callClaude(key, model, userText, onDelta, signal, useFallback) {
+  const body = {
+    model, max_tokens: 16000, stream: true,
+    system: SUM_SYSTEM,
+    output_config: { effort: 'medium' },
+    messages: [{ role: 'user', content: userText }],
+  };
+  const headers = {
+    'content-type': 'application/json',
+    'x-api-key': key,
+    'anthropic-version': '2023-06-01',
+    'anthropic-dangerous-direct-browser-access': 'true',
+  };
+  if (useFallback) {   // 安全判定で応答が止まった場合に、API側で代替モデルへ自動的に切り替える
+    body.fallbacks = 'default';
+    headers['anthropic-beta'] = 'server-side-fallback-2026-07-01';
+  }
+  const res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers, body: JSON.stringify(body), signal });
+  if (!res.ok) {
+    let detail = '';
+    try { const j = await res.json(); detail = (j.error && j.error.message) || ''; } catch (_) {}
+    const err = new Error(detail || ('HTTP ' + res.status));
+    err.status = res.status;
+    throw err;
+  }
+  const reader = res.body.getReader(), dec = new TextDecoder();
+  let buf = '', stop = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+      if (!line.startsWith('data:')) continue;
+      let ev; try { ev = JSON.parse(line.slice(5)); } catch (_) { continue; }
+      if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta') onDelta(ev.delta.text);
+      else if (ev.type === 'message_delta' && ev.delta && ev.delta.stop_reason) stop = ev.delta.stop_reason;
+      else if (ev.type === 'error') throw new Error((ev.error && ev.error.message) || 'APIエラー');
+    }
+  }
+  return stop;
+}
+function apiErrorText(e) {
+  const s = e.status;
+  if (s === 401) return 'APIキーが正しくありません。';
+  if (s === 403) return 'このAPIキーには権限がありません。';
+  if (s === 404) return '指定したモデルが利用できません。別のモデルを選んでください。';
+  if (s === 413) return '文字起こしが長すぎて送信できません。分割して要約してください。';
+  if (s === 429) return '利用上限に達しました。しばらく待ってから再実行してください。';
+  if (s >= 500) return 'Claude API側で一時的なエラーが発生しました。少し待って再実行してください。';
+  if (!s) return '通信できませんでした（ネットワーク、または社内のアクセス制限を確認してください）：' + (e.message || e);
+  return 'APIエラー：' + (e.message || s);
+}
+$('btnApiSum').onclick = async () => {
+  const req = buildSummaryRequest();
+  if (!req) { setMsg($('sumMsg'), '文字起こし結果がありません。', 'err'); return; }
+  const key = $('apiKey').value.trim();
+  if (!key) {
+    $('apiBox').open = true; $('apiKey').focus();
+    setMsg($('sumMsg'), 'APIキーを入力してください。キーが無い場合は「要約依頼文をコピー」を使ってClaudeに貼り付けてください。', 'err'); return;
+  }
+  if ($('sumText').value.trim() && !confirm('現在の要約結果を上書きします。よろしいですか？')) return;
+  const model = $('apiModel').value;
+  const out = $('sumText'); out.value = '';
+  sumAbort = new AbortController();
+  $('btnApiSum').disabled = true; $('btnApiStop').disabled = false;
+  setMsg($('sumMsg'), '要約を作成しています…');
+  const onDelta = (t) => { out.value += t; out.scrollTop = out.scrollHeight; };
+  try {
+    let stop;
+    const fb = model !== 'claude-haiku-5-5';
+    try { stop = await callClaude(key, model, req, onDelta, sumAbort.signal, fb); }
+    catch (e) {
+      if (!(fb && e.status === 400 && !out.value)) throw e;
+      stop = await callClaude(key, model, req, onDelta, sumAbort.signal, false);
+    }
+    if (stop === 'refusal') setMsg($('sumMsg'), 'この内容は要約できませんでした（モデルが応答を控えました）。', 'err');
+    else if (stop === 'max_tokens') setMsg($('sumMsg'), '要約が長くなり途中で打ち切られました。追加の指示で「簡潔に」と指定して再実行してください。', 'err');
+    else setMsg($('sumMsg'), '要約が完了しました。内容を確認してください。', 'ok');
+  } catch (e) {
+    if (e.name === 'AbortError') setMsg($('sumMsg'), '中止しました。');
+    else setMsg($('sumMsg'), apiErrorText(e), 'err');
+  } finally {
+    sumAbort = null;
+    $('btnApiSum').disabled = false; $('btnApiStop').disabled = true;
+  }
+};
+$('btnApiStop').onclick = () => { if (sumAbort) sumAbort.abort(); };
+$('btnCopySum').onclick = async () => {
+  if (!$('sumText').value.trim()) return;
+  setMsg($('sumMsg'), (await copyText($('sumText').value)) ? 'コピーしました。' : 'コピーできませんでした。', 'ok');
+};
+$('btnSaveSum').onclick = () => {
+  const t = $('sumText').value;
+  if (!t.trim()) return;
+  saveBlob(baseName() + '_要約.md', new Blob([t], { type: 'text/markdown;charset=utf-8' }));
+};
+
+// テスト・確認用（画面操作には影響しません）
+window.__app = { splitSegments, encodeWav, decodeTo16k, rec, tr, buildSummaryRequest };
+recUi('idle');
+listMics();
+})();
+</script>
+</body>
+</html>
