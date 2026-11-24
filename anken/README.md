@@ -33,6 +33,22 @@
    - アクセスできるユーザー：**全員**
 10. 表示されたURL（末尾が `/exec`）とパスワードを、利用者に別々の手段で伝える
 
+### コマンド（clasp）で入れる方法
+
+貼り付けの代わりに、Google 公式のコマンドツール clasp でコードを送れます。自分のPCで実行します（Node.js が必要）。
+
+1. https://script.google.com/home/usersettings で「Google Apps Script API」をオンにする
+2. `npm install -g @google/clasp`
+3. `clasp login`（ブラウザが開くので、スプレッドシートを所有するアカウントで許可する）
+4. `anken` フォルダで `clasp create --type sheets --parentId <スプレッドシートのID> --title 案件管理ボード --rootDir .`
+   （IDは、スプレッドシートのURLの `/d/` と `/edit` の間の文字列）
+5. `clasp push -f`（`Code.gs`・`Index.html`・`appsscript.json` が送られる）
+6. `clasp deploy --description v1`（表示される ID のURL `https://script.google.com/macros/s/<ID>/exec` が公開URL）
+7. 上の手順 5〜8（`setup` の実行と権限の許可、利用者の登録、パスワード設定）はスプレッドシート側で行う
+
+コードを直したときは `clasp push -f` のあと `clasp deploy --deploymentId <ID> --description v2`（URLは変わらない）。
+`.clasp.json`（スクリプトのID入り）は Git に入れない設定にしてある。
+
 ### コードを更新するとき
 
 「デプロイ」→「デプロイを管理」→鉛筆アイコン→バージョン「新バージョン」→「デプロイ」。
