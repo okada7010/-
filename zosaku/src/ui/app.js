@@ -6,7 +6,7 @@ import { aabbOf, unionAabb, cornersOf, rotateParts, translateParts, localToWorld
 import { newDoc, addPart, newGroupId, newSubId, serializeDoc, parseDoc, History, wallFromPoints, wallEnds } from '../core/model.js';
 import { snapGrid, snapBox } from '../core/snap.js';
 import { frameWall } from '../core/framing.js';
-import { makeCabinet, makeCounter } from '../core/cabinet.js';
+import { makeCabinet, makeCounter, makeWallShelf } from '../core/cabinet.js';
 import { buildCutlist, cutlistTables, cutlistCsv } from '../core/cutlist.js';
 import { MATS, LIBRARY, KIND_NAMES, SIZE_LABELS, WALL_PRESETS } from '../core/catalog.js';
 import { buildSample } from '../core/sample.js';
@@ -148,7 +148,9 @@ function renderCtx() {
   if (S.place) {
     el.innerHTML = `<b>${esc(S.place.label)}</b>` + (S.place.opening
       ? tip('壁をクリックすると、その位置に入ります（Shift＋クリック＝続けて入れる、Esc＝中止）')
-      : tip('クリックで置きます。ほかの部材の面に合わせると、その面に付きます（R＝90°回転、Shift＋クリック＝続けて置く、Esc＝中止）'));
+      : S.place.wallMount
+        ? tip('壁の面をクリックすると、背を壁に向けて、指定の高さに付きます（Shift＋クリック＝続けて置く、Esc＝中止）')
+        : tip('クリックで置きます。ほかの部材の面に合わせると、その面に付きます（R＝90°回転、Shift＋クリック＝続けて置く、Esc＝中止）'));
     return;
   }
   if (S.tool === 'wall') {
@@ -199,12 +201,17 @@ async function useLibItem(it, key) {
     return;
   }
   if (it.type === 'gen') {
+    if (it.gen === 'wallshelf') {
+      const parts = await askWallShelf();
+      if (parts) startPlace(parts, it.name, 0, key, { fixZ: true, wallMount: true });
+      return;
+    }
     const parts = it.gen === 'cabinet' ? await askCabinet() : await askCounter();
     if (parts) startPlace(parts, it.name, 0, key);
     return;
   }
   const part = { kind: it.kind, name: it.name, mat: it.mat, c: [0, 0, 0], s: it.s.slice(), r: it.stand ? [0, -90, 0] : [0, 0, 0] };
-  startPlace([part], it.name, it.z || 0, key);
+  startPlace([part], it.name, it.z || 0, key, { wallMount: it.kind === 'hardware' });
 }
 
 // ---------- 配置（仮表示をマウスに付けて、クリックで置く） ----------
@@ -213,10 +220,13 @@ function normalizePlace(parts) {
   translateParts(parts, [-c[0], -c[1], -b.min[2]]);
 }
 
-function startPlace(parts, label, z0, key) {
+// opts.fixZ：作ったときの高さのまま置く／opts.wallMount：壁の面をクリックすると、背（+Y）を壁に向ける
+function startPlace(parts, label, z0, key, opts = {}) {
   setTool('select');
+  if (opts.fixZ) z0 = unionAabb(parts).min[2];
   normalizePlace(parts);
-  S.place = { parts, label, z0: z0 || 0, cur: null };
+  S.place = { parts, label, z0: z0 || 0, cur: null, fixZ: !!opts.fixZ, wallMount: !!opts.wallMount,
+    base: opts.wallMount ? JSON.parse(JSON.stringify(parts)) : null, rot: 0 };
   S.libOn = key || null;
   view.dom.style.cursor = 'crosshair';
   renderCtx(); updateButtons();
@@ -226,9 +236,19 @@ function startPlace(parts, label, z0, key) {
 function movePlace(e) {
   const pl = S.place;
   if (!pl || pl.opening) return;
+  const pick = view.pick(e.clientX, e.clientY);
+  if (pl.wallMount && pick && Math.abs(pick.normal[2]) < 0.5) {
+    // 正面（-Y）を面の外向きに合わせる
+    const deg = rnd(Math.atan2(pick.normal[0], -pick.normal[1]) * 180 / Math.PI, 2);
+    if (deg !== pl.rot) {
+      pl.parts = JSON.parse(JSON.stringify(pl.base));
+      if (deg) rotateParts(pl.parts, 'z', deg, [0, 0, 0]);
+      normalizePlace(pl.parts);
+      pl.rot = deg;
+    }
+  }
   const b = unionAabb(pl.parts), c0 = centerOf(b);
   const half = [(b.max[0] - b.min[0]) / 2, (b.max[1] - b.min[1]) / 2, (b.max[2] - b.min[2]) / 2];
-  const pick = view.pick(e.clientX, e.clientY);
   let center;
   if (pick) {
     const n = pick.normal;
@@ -242,6 +262,7 @@ function movePlace(e) {
     if (!pt || Math.hypot(pt[0], pt[1]) > 500000) return;
     center = [snapGrid(pt[0] - half[0], S.grid) + half[0], snapGrid(pt[1] - half[1], S.grid) + half[1], pl.z0 + half[2]];
   }
+  if (pl.fixZ) center[2] = pl.z0 + half[2];
   const d = [center[0] - c0[0], center[1] - c0[1], center[2] - c0[2]];
   pl.cur = pl.parts.map(p => ({ ...p, c: [rnd(p.c[0] + d[0]), rnd(p.c[1] + d[1]), rnd(p.c[2] + d[2])] }));
   view.setGhost(pl.cur);
@@ -696,6 +717,7 @@ function rotateSel(axis) {
     const b = unionAabb(S.place.parts);
     rotateParts(S.place.parts, 'z', 90, centerOf(b));
     normalizePlace(S.place.parts);
+    S.place.rot = NaN; // 次に壁へ合わせたとき、向きを付け直す
     if (S.lastMove) movePlace(S.lastMove);
     return;
   }
@@ -827,6 +849,23 @@ async function askCabinet() {
   return makeCabinet(v);
 }
 
+async function askWallShelf() {
+  const v = await formDialog('壁付け棚を作る', [
+    { key: 'W', label: '棚板の幅（W）', type: 'number', value: 900, min: 100, unit: 'mm' },
+    { key: 'D', label: '棚板の奥行（D）', type: 'number', value: 250, min: 60, unit: 'mm' },
+    { key: 't', label: '棚板の厚さ', type: 'number', value: 18, min: 3, unit: 'mm' },
+    { key: 'n', label: '段数', type: 'number', value: 3, min: 1, max: 20 },
+    { key: 'pitch', label: '段の間隔', type: 'number', value: 300, min: 50, unit: 'mm' },
+    { key: 'h0', label: '下の段の高さ（床から棚板の上面）', type: 'number', value: 900, min: 0, unit: 'mm' },
+    { key: 'brackets', label: '棚受け金物（1段あたり、0＝なし）', type: 'number', value: 2, min: 0, max: 10 },
+    { key: 'mat', label: '棚板の材料', type: 'select', value: 'lumbercore', options: [
+      { v: 'lumbercore', label: 'ランバーコア' }, { v: 'laminated', label: '集成材' }, { v: 'plywood', label: '合板' }, { v: 'white', label: '化粧板（白）' }] }
+  ], '作る', '棚板と、その下に付ける棚受け金物（L字）を作ります。壁の面をクリックすると、背を壁に向けて、指定の高さに付きます。棚受けの大きさは奥行から自動で決めます（段の間隔が狭いときは縦を縮めます）。');
+  if (!v) return null;
+  if (v.n > 1 && v.pitch <= v.t) { toast('段の間隔は、棚板の厚さより大きくしてください'); return null; }
+  return makeWallShelf(v);
+}
+
 async function askCounter() {
   const v = await formDialog('カウンターを作る', [
     { key: 'W', label: '幅（W）', type: 'number', value: 1800, min: 200, unit: 'mm' },
@@ -929,13 +968,14 @@ function showHelp() {
     title: `造作3DCAD Ver${VERSION} の使い方`,
     body: `<div class="help">
       <h5>できること</h5>
-      <ul><li>角材・板材・壁・床・天井・建具・造作家具を、mm単位で3Dに組み立てる</li>
+      <ul><li>角材・板材・壁・床・天井・建具・造作家具（箱物・棚、カウンター、壁付け棚）を、mm単位で3Dに組み立てる</li>
       <li>壁を「下地に展開」して、上下枠・間柱・まぐさ・窓台・ボードに自動で割り付ける</li>
       <li>部材表（拾い出し）を作り、CSV（Excel用）で保存する</li></ul>
       <h5>置く・描く</h5>
       <ul><li>左の一覧から部材を選び、3D画面でクリックして置く。ほかの部材の面に合わせると、その面に付く</li>
       <li>「壁を描く」は、始点→終点の順にクリック。数字を打って <kbd>Enter</kbd> で長さを指定できる</li>
-      <li>建具・開口は、左で選んでから壁をクリック。位置や寸法は右の「プロパティ」で直す</li></ul>
+      <li>建具・開口は、左で選んでから壁をクリック。位置や寸法は右の「プロパティ」で直す</li>
+      <li>「壁付け棚」は、寸法・段数・高さを入れてから壁の面をクリック。背が壁に向き、指定の高さに付く</li></ul>
       <h5>選ぶ・動かす</h5>
       <ul><li>クリックで選択、<kbd>Shift</kbd>＋クリックで追加。グループは全体が選ばれる（<kbd>Alt</kbd>＋クリックで1本だけ）</li>
       <li>部材をドラッグで移動。<kbd>Shift</kbd> を押しながらで上下、<kbd>Alt</kbd> で位置合わせなし</li>

@@ -128,10 +128,41 @@ ok('壁を下地に展開できる: ' + framed.names.join('・'));
 await page.keyboard.press('Escape');
 await shot('framed');
 
+// 壁付け棚：西の壁（室内側の面 x=45）をクリック
+await page.click('#lib .item:has-text("壁付け棚")');
+await page.click('#dlgFoot button.primary');
+await page.waitForFunction(() => window.__zosaku.S.place);
+await clickAt([45, 2200, 1500]);
+const ws = await st(() => {
+  const z = window.__zosaku;
+  return z.S.doc.parts.filter(p => z.S.sel.has(p.id)).map(p => ({ kind: p.kind, name: p.name, c: p.c, s: p.s, r: p.r }));
+});
+const wsBoards = ws.filter(p => p.name === '棚板'), wsHw = ws.filter(p => p.kind === 'hardware');
+assert.equal(wsBoards.length, 3);
+assert.equal(wsHw.length, 6);
+for (const b of wsBoards) {
+  assert.ok(Math.abs(Math.abs(b.r[2]) - 90) < 0.01, `壁に合わせて90°回る（${b.r}）`);
+  assert.ok(Math.abs(b.c[0] - (45 + 125)) < 0.01, `背が壁の面に付く（中心X ${b.c[0]}）`);
+}
+assert.deepEqual(wsBoards.map(b => b.c[2] + 9).sort((x, y) => x - y), [900, 1200, 1500]);
+ok('壁付け棚：壁をクリックすると、背を壁に向けて指定の高さ（900・1200・1500）に付く');
+await page.keyboard.press('Escape');
+await shot('wallshelf');
+
+// 棚受け金物だけを壁に付ける
+await page.click('#lib .item:has-text("棚受け金物 200×150")');
+await clickAt([45, 2600, 600]);
+const hw = await st(() => { const z = window.__zosaku; return z.S.doc.parts.find(p => z.S.sel.has(p.id)); });
+assert.equal(hw.kind, 'hardware');
+assert.ok(Math.abs(Math.abs(hw.r[2]) - 90) < 0.01 && Math.abs(hw.c[0] - (45 + 100)) < 0.01, `金物も背を壁に向ける（${hw.c} / ${hw.r}）`);
+ok('棚受け金物だけでも、壁をクリックすると背を壁に向けて付く');
+await page.keyboard.press('Escape');
+
 // 部材表
 await page.click('[data-act=cutlist]');
 const cl = await page.textContent('#clTables');
 assert.match(cl, /角材/); assert.match(cl, /間柱/); assert.match(cl, /定尺の必要本数/); assert.match(cl, /建具/);
+assert.match(cl, /金物/); assert.match(cl, /棚受け金物/);
 await shot('cutlist');
 const dl = page.waitForEvent('download');
 await page.click('#dlgFoot button:has-text("CSV")');

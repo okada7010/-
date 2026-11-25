@@ -2,7 +2,7 @@
 import { rnd } from './geom.js';
 
 export const APP_ID = 'zosaku3dcad';
-export const KINDS = ['lumber', 'panel', 'wall', 'slab', 'box', 'fitting'];
+export const KINDS = ['lumber', 'panel', 'wall', 'slab', 'box', 'fitting', 'hardware'];
 
 export function newDoc() {
   return { app: APP_ID, version: 1, name: '無題', seq: 1, parts: [], dims: [] };

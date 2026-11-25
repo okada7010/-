@@ -22,7 +22,7 @@ export const MATS = {
 export const matName = key => (MATS[key] ? MATS[key].name : key || '');
 
 export const KIND_NAMES = {
-  lumber: '角材', panel: '板材', wall: '壁', slab: '床・天井', box: '汎用', fitting: '建具'
+  lumber: '角材', panel: '板材', wall: '壁', slab: '床・天井', box: '汎用', fitting: '建具', hardware: '金物'
 };
 
 // 寸法欄の見出し（s[0], s[1], s[2] の順）
@@ -32,7 +32,8 @@ export const SIZE_LABELS = {
   wall: ['長さ', '厚さ', '高さ'],
   slab: ['長さ（X）', '奥行（Y）', '厚さ'],
   box: ['X寸法', 'Y寸法', 'Z寸法'],
-  fitting: ['幅', '厚さ', '高さ']
+  fitting: ['幅', '厚さ', '高さ'],
+  hardware: ['幅', '腕の長さ', '縦の長さ']
 };
 
 const L = (name, b, h, len, mat = 'wood', stand = false) => ({ type: 'part', kind: 'lumber', name, s: [len, b, h], mat, stand });
@@ -92,10 +93,12 @@ export const LIBRARY = [
   ] },
   { title: '造作家具（寸法を入れて作る）', items: [
     { type: 'gen', gen: 'cabinet', name: '箱物・棚', hint: '側板・天板・地板・棚板・背板' },
-    { type: 'gen', gen: 'counter', name: 'カウンター', hint: '天板・側板・幕板' }
+    { type: 'gen', gen: 'counter', name: 'カウンター', hint: '天板・側板・幕板' },
+    { type: 'gen', gen: 'wallshelf', name: '壁付け棚', hint: '棚板・棚受け金物（壁をクリック）' }
   ] },
   { title: '汎用', items: [
-    { type: 'part', kind: 'box', name: '直方体', s: [500, 500, 500], mat: 'other' }
+    { type: 'part', kind: 'box', name: '直方体', s: [500, 500, 500], mat: 'other' },
+    { type: 'part', kind: 'hardware', name: '棚受け金物 200×150', s: [25, 200, 150], mat: 'steel' }
   ] }
 ];
 

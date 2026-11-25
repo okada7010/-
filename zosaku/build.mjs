@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const VER = '1.0';
+const VER = '1.1';
 
 const result = await build({
   entryPoints: [join(here, 'src/ui/app.js')],

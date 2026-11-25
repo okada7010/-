@@ -327,6 +327,12 @@ export class View3D {
       g.add(lines);
     } else if (part.kind === 'fitting') {
       this.addFitting(g, part.ftype || 'door', part.s[0], part.s[1], part.s[2], [0, 0, 0], sel, part.id);
+    } else if (part.kind === 'hardware') {
+      // L字の棚受け：背（+Y）に縦の板、上に腕
+      const [w, d, h] = part.s, tb = Math.min(5, d / 4, h / 4);
+      const m = this.material(part.mat, sel);
+      this.addBox(g, [w, tb, h], [0, d / 2 - tb / 2, 0], m, edgeMat, part.id);
+      this.addBox(g, [w, d - tb, tb], [0, -tb / 2, h / 2 - tb / 2], m, edgeMat, part.id);
     } else {
       this.addBox(g, part.s, [0, 0, 0], this.material(part.mat, sel), edgeMat, part.id);
     }

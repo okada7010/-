@@ -5,7 +5,7 @@ import { aabbOf, cornersOf, quatOf, eulerOf, rotateParts, placeLocal, unionAabb 
 import { newDoc, addPart, serializeDoc, parseDoc, History, wallFromPoints, wallEnds } from '../src/core/model.js';
 import { snapGrid, snapBox } from '../src/core/snap.js';
 import { frameWall } from '../src/core/framing.js';
-import { makeCabinet, makeCounter } from '../src/core/cabinet.js';
+import { makeCabinet, makeCounter, makeWallShelf } from '../src/core/cabinet.js';
 import { buildCutlist, cutlistCsv, packStock, wallArea } from '../src/core/cutlist.js';
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} ≒ ${b}`);
@@ -379,4 +379,72 @@ test('buildSample：部材は部屋のまわりに収まる', () => {
   assert.ok(u.min[0] > -200 && u.max[0] < 3900, `X ${u.min[0]}〜${u.max[0]}`);
   assert.ok(u.min[1] > -200 && u.max[1] < 3000, `Y ${u.min[1]}〜${u.max[1]}`);
   assert.ok(u.min[2] >= -30 && u.max[2] <= 2400.001, `Z ${u.min[2]}〜${u.max[2]}`);
+});
+
+// ---------- 壁付け棚 ----------
+const WS = { W: 900, D: 250, t: 18, n: 3, pitch: 300, h0: 900, brackets: 2 };
+
+test('makeWallShelf：棚板の数と、棚受けは1段に2個', () => {
+  const parts = makeWallShelf(WS);
+  assert.equal(parts.filter(p => p.name === '棚板').length, 3);
+  assert.equal(parts.filter(p => p.kind === 'hardware').length, 6);
+});
+
+test('makeWallShelf：下の段の上面が取付高さ、段の間隔は指定どおり', () => {
+  const tops = makeWallShelf(WS).filter(p => p.name === '棚板').map(p => aabbOf(p).max[2]).sort((a, b) => a - b);
+  nearArr(tops, [900, 1200, 1500]);
+});
+
+test('makeWallShelf：背（壁の側）が y＝奥行/2 にそろい、正面は -Y', () => {
+  const parts = makeWallShelf(WS);
+  const u = unionAabb(parts);
+  near(u.max[1], 125);
+  near(u.min[1], -125);
+  for (const p of parts.filter(q => q.kind === 'hardware')) near(aabbOf(p).max[1], 125);
+});
+
+test('makeWallShelf：棚受けは棚板の真下に付き、板と重ならない', () => {
+  const parts = makeWallShelf(WS);
+  const boards = parts.filter(p => p.name === '棚板');
+  for (const h of parts.filter(p => p.kind === 'hardware')) {
+    const hb = aabbOf(h);
+    const under = boards.find(b => Math.abs(aabbOf(b).min[2] - hb.max[2]) < 1e-6);
+    assert.ok(under, '棚受けの上端が、どれかの棚板の下面にそろう');
+    for (const b of boards) near(overlapVol(hb, aabbOf(b)), 0, 1e-6);
+    assert.ok(hb.min[0] >= -450 && hb.max[0] <= 450, '棚受けは棚板の幅の中');
+  }
+});
+
+test('makeWallShelf：棚受け0個なら棚板だけ', () => {
+  const parts = makeWallShelf({ ...WS, brackets: 0 });
+  assert.ok(parts.every(p => p.name === '棚板'));
+});
+
+test('makeWallShelf：板材は s[2] が板厚', () => {
+  for (const p of makeWallShelf(WS).filter(q => q.kind === 'panel')) assert.equal(p.s[2], 18);
+});
+
+test('parseDoc：金物（hardware）を読み込める', () => {
+  const doc = newDoc();
+  addPart(doc, { kind: 'hardware', name: '棚受け金物', mat: 'steel', c: [0, 0, 0], s: [25, 200, 150], r: [0, 0, 0] });
+  const back = parseDoc(serializeDoc(doc));
+  assert.equal(back.parts.length, 1);
+  assert.equal(back.parts[0].kind, 'hardware');
+});
+
+test('buildCutlist：金物は名称と寸法ごとに数える', () => {
+  const cl = buildCutlist(makeWallShelf(WS));
+  assert.equal(cl.hardware.length, 1);
+  assert.equal(cl.hardware[0].qty, 6);
+  assert.equal(cl.panels.find(r => r.name === '棚板').qty, 3);
+  assert.match(cutlistCsv(cl), /【金物】/);
+});
+
+test('makeWallShelf：段の間隔が狭いときは、棚受けを縮めて下の棚板に当てない', () => {
+  const parts = makeWallShelf({ ...WS, pitch: 120 });
+  const boards = parts.filter(p => p.name === '棚板').map(aabbOf);
+  for (const h of parts.filter(p => p.kind === 'hardware').map(aabbOf)) {
+    for (const b of boards) near(overlapVol(h, b), 0, 1e-6);
+    assert.ok(h.max[2] - h.min[2] >= 30, '縦の長さは30mm以上は残す');
+  }
 });

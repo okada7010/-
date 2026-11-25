@@ -40,7 +40,7 @@ function bump(map, key, make) {
 export function buildCutlist(parts, opt = {}) {
   const stockLen = opt.stockLen || 4000, kerf = opt.kerf ?? 3;
   const sheetW = opt.sheetW || 910, sheetL = opt.sheetL || 1820, loss = opt.loss ?? 0.1;
-  const lumber = new Map(), panels = new Map(), walls = new Map(), slabs = new Map(), fittings = new Map(), others = new Map();
+  const lumber = new Map(), panels = new Map(), walls = new Map(), slabs = new Map(), fittings = new Map(), hardware = new Map(), others = new Map();
   const secs = new Map(), sheets = new Map();
   const fit = (name, type, w, h) => bump(fittings, [name, type, w, h].join('|'), () => ({ name, type, w, h, qty: 0 }));
 
@@ -72,6 +72,9 @@ export function buildCutlist(parts, opt = {}) {
       const len = r1(p.s[0]), w = r1(p.s[1]), t = r1(p.s[2]);
       const row = bump(slabs, [p.name, mat, len, w, t].join('|'), () => ({ name: p.name, mat, len, w, t, qty: 0, areaM2: 0 }));
       row.areaM2 = r3(row.qty * len * w / 1e6);
+    } else if (p.kind === 'hardware') {
+      const d = p.s.map(r1);
+      bump(hardware, [p.name, mat, ...d].join('|'), () => ({ name: p.name, mat, w: d[0], d: d[1], h: d[2], qty: 0 }));
     } else if (p.kind === 'fitting') {
       fit(p.name || (p.ftype === 'door' ? 'ドア' : '窓'), p.ftype || 'door', r1(p.s[0]), r1(p.s[2]));
     } else {
@@ -96,6 +99,7 @@ export function buildCutlist(parts, opt = {}) {
     walls: [...walls.values()].sort(byName),
     slabs: [...slabs.values()].sort(byName),
     fittings: [...fittings.values()].sort(byName),
+    hardware: [...hardware.values()].sort(byName),
     others: [...others.values()].sort(byName),
     stock, sheets: sheetRows,
     opt: { stockLen, kerf, sheetW, sheetL, loss }
@@ -120,6 +124,8 @@ export function cutlistTables(cl) {
       rows: cl.slabs.map(r => [r.name, matName(r.mat), r.len, r.w, r.t, r.qty, r.areaM2]) },
     { title: '建具', head: ['名称', '種類', '幅', '高さ', '数'],
       rows: cl.fittings.map(r => [r.name, typeName[r.type] || r.type, r.w, r.h, r.qty]) },
+    { title: '金物', head: ['名称', '材料', '幅', '腕の長さ', '縦の長さ', '数'],
+      rows: cl.hardware.map(r => [r.name, matName(r.mat), r.w, r.d, r.h, r.qty]) },
     { title: 'その他', head: ['名称', '材料', 'X寸法', 'Y寸法', 'Z寸法', '数'],
       rows: cl.others.map(r => [r.name, matName(r.mat), r.x, r.y, r.z, r.qty]) }
   ];

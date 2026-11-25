@@ -45,3 +45,27 @@ export function makeCounter(o) {
   out.push(upright('幕板', o.mat || 'lumbercore', D / 2 - 30 - t / 2, W - 2 * t, apron, t, legH - apron / 2));
   return out;
 }
+
+// 壁付け棚：棚板と棚受け金物（L字）。背（壁の側）が +Y、正面が -Y。
+// h0＝下の段の棚板の上面の高さ（床から）。金物は kind 'hardware'（s＝［幅, 腕の長さ, 縦の長さ］）。
+export function makeWallShelf(o) {
+  const W = o.W, D = o.D, t = o.t;
+  const n = Math.max(1, Math.floor(o.n || 1));
+  const k = Math.max(0, Math.floor(o.brackets ?? 2));
+  const mat = o.mat || 'lumbercore';
+  const armD = o.armD || Math.max(50, Math.round(D * 0.8 / 5) * 5);   // 腕は奥行の8割ほど
+  let armH = o.armH || Math.max(50, Math.round(armD * 0.75 / 5) * 5);
+  if (n > 1) armH = Math.max(30, Math.min(armH, o.pitch - t - 10)); // 下の段の棚板に当てない
+  const bw = 25;
+  const inset = Math.min(100, W / 4);
+  const xs = k === 1 ? [0] : Array.from({ length: k }, (_, i) => -W / 2 + inset + (W - 2 * inset) * i / (k - 1));
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const top = o.h0 + i * o.pitch;
+    out.push({ kind: 'panel', name: '棚板', mat, c: [0, 0, top - t / 2], s: [W, D, t], r: [0, 0, 0] });
+    for (const x of xs) {
+      out.push({ kind: 'hardware', name: '棚受け金物', mat: 'steel', c: [x, D / 2 - armD / 2, top - t - armH / 2], s: [bw, armD, armH], r: [0, 0, 0] });
+    }
+  }
+  return out;
+}
