@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>造作3DCAD</title>
+<style>
+/*__CSS__*/
+</style>
+</head>
+<body>
+<div id="top">
+  <div class="row">
+    <div class="brand">造作3DCAD <small>Ver__VER__</small></div>
+    <div class="grp"><span class="cap">図面名</span><input type="text" id="docName" maxlength="60" aria-label="図面名"></div>
+    <div class="grp"><span class="cap">ファイル</span>
+      <button data-act="new">新規</button>
+      <button data-act="open">開く</button>
+      <button data-act="save" title="Ctrl+S">保存</button>
+      <button data-act="sample">サンプル</button>
+    </div>
+    <div class="grp"><span class="cap">出力</span>
+      <button data-act="cutlist" class="primary">部材表</button>
+      <button data-act="png">画像</button>
+      <button data-act="obj" title="他の3Dソフト向け（mm、Zが上）">OBJ</button>
+    </div>
+    <div class="grp"><span class="cap">位置合わせ</span>
+      <select id="gridSel" title="移動・作図の刻み" aria-label="刻み">
+        <option value="1">1mm</option><option value="5">5mm</option><option value="10" selected>10mm</option>
+        <option value="50">50mm</option><option value="100">100mm</option><option value="455">455mm</option><option value="910">910mm</option>
+      </select>
+      <button data-act="osnap" id="btnOsnap" class="on" title="ほかの部材の面にぴったり付ける">吸着</button>
+    </div>
+    <div class="spacer"></div>
+    <button data-act="help">使い方</button>
+  </div>
+  <div class="row">
+    <div class="grp"><span class="cap">ツール</span>
+      <button data-tool="select" title="V">選択・移動</button>
+      <button data-tool="wall" title="W">壁を描く</button>
+      <button data-tool="measure" title="M">寸法を測る</button>
+    </div>
+    <div class="grp"><span class="cap">編集</span>
+      <button data-act="undo" title="Ctrl+Z">元に戻す</button>
+      <button data-act="redo" title="Ctrl+Y">やり直し</button>
+      <button data-act="dup" data-need="sel" title="Ctrl+D">複製</button>
+      <button data-act="array" data-need="sel">配列</button>
+      <button data-act="group" data-need="sel2" title="Ctrl+G">グループ</button>
+      <button data-act="ungroup" data-need="grp" title="Ctrl+Shift+G">解除</button>
+      <button data-act="del" data-need="any" class="danger" title="Delete">削除</button>
+    </div>
+    <div class="grp"><span class="cap">90°回転</span>
+      <button data-act="rotz" data-need="sel" title="平面で90°回す（R）">平面</button>
+      <button data-act="rotx" data-need="sel" title="X軸まわりに90°（起こす・倒す）">X軸</button>
+      <button data-act="roty" data-need="sel" title="Y軸まわりに90°（起こす・倒す）">Y軸</button>
+    </div>
+    <div class="grp"><span class="cap">表示</span>
+      <button data-view="iso" title="1">立体</button>
+      <button data-view="top" title="2">平面</button>
+      <button data-view="front" title="3">正面</button>
+      <button data-view="right" title="4">側面</button>
+      <button data-act="ortho" id="btnOrtho" title="透視投影と平行投影の切替">平行投影</button>
+      <button data-act="fit" title="F">全体</button>
+      <button data-act="clip" id="btnClip" title="指定の高さから上を隠す">断面</button>
+      <button data-act="autodim" id="btnAutoDim" title="外形寸法と板の割付寸法を自動で描く（D）">寸法表示</button>
+    </div>
+  </div>
+  <div class="row" id="ctx"></div>
+</div>
+<main>
+  <aside id="lib" aria-label="部材ライブラリ"></aside>
+  <div id="stage">
+    <div id="view"></div>
+    <div id="labels"></div>
+    <div id="viewInfo"></div>
+    <div id="clipBox"><span>断面の高さ</span><input type="range" id="clipRange" min="0" max="3000" step="10" value="1500"><input type="number" id="clipNum" value="1500" step="10"><span>mm</span></div>
+  </div>
+  <aside id="side">
+    <div class="tabs"><button data-tab="props" class="on">プロパティ</button><button data-tab="list">部材一覧</button></div>
+    <div class="pane on" id="pane-props"></div>
+    <div class="pane" id="pane-list"></div>
+  </aside>
+</main>
+<div id="status"><span id="stPos"></span><span id="stSel"></span><span id="stAll"></span><span id="stMsg"></span></div>
+<dialog id="dlg"><form method="dialog"><header id="dlgTitle"></header><div class="body" id="dlgBody"></div><footer id="dlgFoot"></footer></form></dialog>
+<div id="toast" role="status"></div>
+<input type="file" id="file" accept=".json,application/json" hidden>
+<script>
+/*__JS__*/
+</script>
+</body>
+</html>
