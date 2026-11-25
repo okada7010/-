@@ -1,0 +1,15 @@
+{
+  "name": "zosaku-3dcad",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "造作3DCAD（建築造作向けの簡易3DCAD、単一HTML）",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "three": "^0.187.0"
+  }
+}
