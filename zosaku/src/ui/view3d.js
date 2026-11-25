@@ -75,8 +75,10 @@ export class View3D {
     this.partsGroup = new THREE.Group();
     this.ghostGroup = new THREE.Group();
     this.dimGroup = new THREE.Group();
+    this.autoDimGroup = new THREE.Group();
+    this.autoDimMat = new THREE.LineBasicMaterial({ color: 0x0b7285, depthTest: false });
     this.gridGroup = new THREE.Group();
-    this.scene.add(this.gridGroup, this.partsGroup, this.ghostGroup, this.dimGroup);
+    this.scene.add(this.gridGroup, this.partsGroup, this.ghostGroup, this.dimGroup, this.autoDimGroup);
 
     this.objs = new Map();     // id → { group, key }
     this.pickables = [];
@@ -395,6 +397,23 @@ export class View3D {
     this.requestRender();
   }
 
+  // 自動の寸法線（寸法線・引出線・端の斜線）
+  setAutoDims(dims) {
+    for (const c of [...this.autoDimGroup.children]) { this.autoDimGroup.remove(c); c.geometry.dispose(); }
+    const pts = [];
+    for (const d of dims || []) {
+      pts.push(...d.a, ...d.b);
+      for (const [p, q] of [...d.ext, ...d.ticks]) pts.push(...p, ...q);
+    }
+    if (pts.length) {
+      const g = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+      const line = new THREE.LineSegments(g, this.autoDimMat);
+      line.renderOrder = 8;
+      this.autoDimGroup.add(line);
+    }
+    this.requestRender();
+  }
+
   setMarker(p) {
     this.marker.visible = !!p;
     if (p) this.marker.position.set(p[0], p[1], p[2]);
@@ -465,18 +484,46 @@ export class View3D {
       el.textContent = l.text;
       if (l.data) el.dataset.dim = l.data; else delete el.dataset.dim;
     }
+    // 札の大きさ（重なりの判定用）。まとめて1回だけ測る
+    for (const l of list) this.labelEls.get(l.key).style.display = '';
+    for (const l of list) {
+      const el = this.labelEls.get(l.key);
+      l.w = el.offsetWidth || 8 * l.text.length + 10;
+      l.h = el.offsetHeight || 18;
+    }
     this.requestRender();
   }
 
+  // 文字の札を置く。寸法の札は、縦に近い寸法線では横向きに倒し（図面の書き方）、
+  // 線より長い内訳の札や、先に置いた札と重なる札は出さない（外形 → 内訳の順に優先）
   placeLabels() {
     this.camera.updateMatrixWorld();
-    for (const l of this.labels) {
+    const prio = l => (!l.seg ? 0 : (l.cls || '').includes('total') ? 1 : 2);
+    const order = this.labels.slice().sort((x, y) => prio(x) - prio(y));
+    const placed = [];
+    for (const l of order) {
       const el = this.labelEls.get(l.key);
       if (!el) continue;
       const s = this.project(l.p);
+      l.shown = false;
       if (s.behind) { el.style.display = 'none'; continue; }
+      let rot = 0, bw = l.w || 40, bh = l.h || 18;
+      if (l.seg) {
+        const a = this.project(l.seg[0]), b = this.project(l.seg[1]);
+        const len = Math.hypot(a.x - b.x, a.y - b.y);
+        let ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+        if (ang > 90) ang -= 180; else if (ang <= -90) ang += 180;
+        if (Math.abs(ang) > 60) { rot = -90; [bw, bh] = [bh, bw]; }
+        if (prio(l) === 2 && len < (rot ? bh : bw) + 6) { el.style.display = 'none'; continue; } // 外形寸法は短くても出す
+        const r = { x0: s.x - bw / 2, x1: s.x + bw / 2, y0: s.y - bh / 2, y1: s.y + bh / 2 };
+        if (placed.some(q => r.x0 < q.x1 && r.x1 > q.x0 && r.y0 < q.y1 && r.y1 > q.y0)) { el.style.display = 'none'; continue; }
+        placed.push(r);
+      } else {
+        placed.push({ x0: s.x - bw / 2, x1: s.x + bw / 2, y0: s.y - bh / 2, y1: s.y + bh / 2 });
+      }
+      l.shown = true; l.sx = s.x; l.sy = s.y; l.rot = rot;
       el.style.display = '';
-      el.style.transform = `translate(-50%,-50%) translate(${s.x.toFixed(1)}px,${s.y.toFixed(1)}px)`;
+      el.style.transform = `translate(-50%,-50%) translate(${s.x.toFixed(1)}px,${s.y.toFixed(1)}px)${rot ? ` rotate(${rot}deg)` : ''}`;
     }
   }
 

@@ -448,3 +448,72 @@ test('makeWallShelf：段の間隔が狭いときは、棚受けを縮めて下�
     assert.ok(h.max[2] - h.min[2] >= 30, '縦の長さは30mm以上は残す');
   }
 });
+
+// ---------- 自動寸法 ----------
+import { autoDims } from '../src/core/dims.js';
+const FRONT = [0, 1, 0], PLAN = [0, 0.0005, -1], ISO = [-0.75, 1.2, -0.8];
+const lenOf = d => Math.hypot(d.b[0] - d.a[0], d.b[1] - d.a[1], d.b[2] - d.a[2]);
+const totals = ds => ds.filter(d => d.kind === 'total');
+const chainOn = (ds, ax) => ds.filter(d => d.kind === 'chain' && d.axis === ax);
+
+test('autoDims：外形寸法 W・D・H が出る', () => {
+  const cab = makeCabinet({ W: 900, D: 300, H: 1800, t: 18, shelves: 3, back: 4, kick: 60 });
+  const t = totals(autoDims(cab, ISO));
+  assert.deepEqual(t.map(d => d.axis).sort(), [0, 1, 2]);
+  assert.deepEqual(t.map(d => d.text), t.map(d => String(Math.round(lenOf(d)))));
+  near(lenOf(t.find(d => d.axis === 0)), 900);
+  near(lenOf(t.find(d => d.axis === 1)), 300);
+  near(lenOf(t.find(d => d.axis === 2)), 1800);
+});
+
+test('autoDims：棚割り（高さ方向）の寸法をつなぐと全高になる', () => {
+  const cab = makeCabinet({ W: 900, D: 300, H: 1800, t: 18, shelves: 3, back: 4, kick: 60 });
+  const ch = chainOn(autoDims(cab, ISO), 2);
+  near(ch.reduce((a, d) => a + lenOf(d), 0), 1800);
+  assert.equal(ch.length, 10, '台輪・地板・3段の棚板（板厚と内法）・天板');
+  assert.ok(ch.some(d => d.text === '18'));
+});
+
+test('autoDims：幅方向は側板と内法（18・864・18）', () => {
+  const cab = makeCabinet({ W: 900, D: 300, H: 1800, t: 18, shelves: 0, back: 0, kick: 0 });
+  assert.deepEqual(chainOn(autoDims(cab, FRONT), 0).map(d => d.text), ['18', '864', '18']);
+});
+
+test('autoDims：壁付け棚は床からの高さもつなぐ', () => {
+  const ws = makeWallShelf({ W: 900, D: 250, t: 18, n: 2, pitch: 300, h0: 900, brackets: 0 });
+  const ch = chainOn(autoDims(ws, FRONT), 2);
+  near(ch[0].a[2], 0);
+  assert.deepEqual(ch.map(d => d.text), ['882', '18', '282', '18']);
+});
+
+test('autoDims：chains:false なら外形だけ', () => {
+  const cab = makeCabinet({ W: 900, D: 300, H: 1800, t: 18, shelves: 3, back: 4, kick: 60 });
+  assert.equal(autoDims(cab, ISO, { chains: false }).length, 3);
+});
+
+test('autoDims：正面図では幅の寸法を下に、高さの寸法を左に出す（画面で読める向き）', () => {
+  const cab = makeCabinet({ W: 900, D: 300, H: 1800, t: 18, shelves: 0, back: 0, kick: 0 });
+  const t = totals(autoDims(cab, FRONT));
+  const w = t.find(d => d.axis === 0), h = t.find(d => d.axis === 2);
+  assert.ok(w.a[2] < 0 && w.b[2] < 0, '幅は床より下');
+  near(w.a[1], -150);
+  assert.ok(h.a[0] < -450, '高さは左側');
+  const ch = chainOn(autoDims(cab, FRONT), 0)[0];
+  assert.ok(ch.a[2] > w.a[2], '内訳の寸法は、外形より物の近く');
+});
+
+test('autoDims：平面図では幅の寸法を手前（-Y）に出す', () => {
+  const cab = makeCabinet({ W: 900, D: 300, H: 1800, t: 18, shelves: 0, back: 0, kick: 0 });
+  const w = totals(autoDims(cab, PLAN)).find(d => d.axis === 0);
+  assert.ok(w.a[1] < -150 && w.b[1] < -150);
+});
+
+test('autoDims：寸法線には引出線と端の印がある', () => {
+  const d = totals(autoDims(makeCabinet({ W: 900, D: 300, H: 1800, t: 18, shelves: 0, back: 0, kick: 0 }), FRONT))[0];
+  assert.equal(d.ext.length, 2);
+  assert.equal(d.ticks.length, 2);
+});
+
+test('autoDims：部材がなければ何も出さない', () => {
+  assert.deepEqual(autoDims([], ISO), []);
+});

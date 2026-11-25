@@ -10,6 +10,7 @@ import { makeCabinet, makeCounter, makeWallShelf } from '../core/cabinet.js';
 import { buildCutlist, cutlistTables, cutlistCsv } from '../core/cutlist.js';
 import { MATS, LIBRARY, KIND_NAMES, SIZE_LABELS, WALL_PRESETS } from '../core/catalog.js';
 import { buildSample } from '../core/sample.js';
+import { autoDims } from '../core/dims.js';
 
 const VERSION = '__VER__';
 const SAVE_KEY = 'zosaku3dcad.autosave.v1';
@@ -23,7 +24,7 @@ const today = () => { const d = new Date(); return { y: d.getFullYear(), m: pad2
 const S = {
   doc: newDoc(), sel: new Set(), selDim: null, tool: 'select', hidden: new Set(),
   grid: 10, osnap: true, place: null, libOn: null,
-  wall: { t: 90, h: 2400, z: 0, ortho: true, last: null, typed: '', cur: null },
+  wall: { t: 90, h: 2400, z: 0, ortho: true, last: null, typed: '', cur: null }, autoDim: true, autoDimKey: '', autoDimList: [],
   measure: { a: null }, drag: null, down: null, clip: null, clipboard: null, pasteN: 0,
   live: [], lastMove: null,
   clOpt: { stockLen: 4000, kerf: 3, loss: 10, sheet: '910x1820', onlySel: false }
@@ -82,13 +83,34 @@ function autosaveSoon() {
   }, 600);
 }
 
+// 自動の寸法：選んだ部材（なければ表示中の全部）。壁・床がある図面全体は外形だけ
+function updateAutoDims() {
+  let list = [];
+  if (S.autoDim) {
+    const target = S.sel.size ? selParts() : visibleParts();
+    const chains = S.sel.size > 0 || !target.some(p => p.kind === 'wall' || p.kind === 'slab');
+    list = autoDims(target, view.viewDir(), { chains });
+  }
+  const key = JSON.stringify(list.map(d => [d.a, d.b]));
+  if (key === S.autoDimKey) return false;
+  S.autoDimKey = key;
+  S.autoDimList = list;
+  view.setAutoDims(list);
+  return true;
+}
+
 function updateLabels() {
+  updateAutoDims();
   const list = [];
   for (const d of S.doc.dims) {
     const len = Math.hypot(d.b[0] - d.a[0], d.b[1] - d.a[1], d.b[2] - d.a[2]);
     list.push({ key: 'd:' + d.id, p: [(d.a[0] + d.b[0]) / 2, (d.a[1] + d.b[1]) / 2, (d.a[2] + d.b[2]) / 2], text: fmt(len), cls: 'dim' + (d.id === S.selDim ? ' sel' : ''), data: d.id });
   }
-  if (S.sel.size === 1) {
+  S.autoDimList.forEach((d, i) => list.push({
+    key: 'a' + i, p: [(d.a[0] + d.b[0]) / 2, (d.a[1] + d.b[1]) / 2, (d.a[2] + d.b[2]) / 2],
+    text: d.text, cls: 'adim' + (d.kind === 'total' ? ' total' : ''), seg: [d.a, d.b]
+  }));
+  if (S.sel.size === 1 && !S.autoDim) {
     const p = byId.get([...S.sel][0]);
     if (p) {
       const h = [p.s[0] / 2, p.s[1] / 2, p.s[2] / 2];
@@ -122,6 +144,7 @@ function updateButtons() {
   $('#btnOrtho').classList.toggle('on', view.isOrtho);
   $('#btnOsnap').classList.toggle('on', S.osnap);
   $('#btnClip').classList.toggle('on', S.clip !== null);
+  $('#btnAutoDim').classList.toggle('on', S.autoDim);
   document.querySelectorAll('#lib .item').forEach(b => b.classList.toggle('on', b.dataset.key === S.libOn));
 }
 
@@ -697,7 +720,14 @@ const A = {
   },
   fit(name) {
     const parts = visibleParts();
-    view.setView(name || null, parts.length ? unionAabb(parts) : { min: [0, 0, 0], max: [3640, 2730, 2400] });
+    let box = parts.length ? unionAabb(parts) : { min: [0, 0, 0], max: [3640, 2730, 2400] };
+    if (S.autoDim && parts.length) {
+      // 寸法線の分だけ広めに入れる（dims.js の寸法線のずらし量に合わせる）
+      const size = Math.max(...box.max.map((v, i) => v - box.min[i]));
+      const pad = 2.6 * Math.max(50, Math.round(size * 0.06 / 10) * 10);
+      box = { min: box.min.map(v => v - pad), max: box.max.map(v => v + pad) };
+    }
+    view.setView(name || null, box);
   },
   ortho() { view.setOrtho(!view.isOrtho); updateButtons(); updateStatus(); },
   osnap() { S.osnap = !S.osnap; updateButtons(); updateStatus(); },
@@ -706,6 +736,11 @@ const A = {
     $('#clipBox').classList.toggle('show', S.clip !== null);
     view.setClip(S.clip);
     updateButtons();
+  },
+  autodim() {
+    S.autoDim = !S.autoDim;
+    try { localStorage.setItem(SAVE_KEY + '.autodim', S.autoDim ? '1' : '0'); } catch (e) { /* 保存できなくても動かす */ }
+    updateLabels(); updateButtons();
   },
   cutlist() { showCutlist(); },
   help() { showHelp(); }
@@ -753,15 +788,20 @@ function compositePng() {
   g.font = `600 ${12 * k}px "Yu Gothic UI","Meiryo",sans-serif`;
   g.textAlign = 'center'; g.textBaseline = 'middle';
   for (const l of view.labels) {
-    const s = view.project(l.p);
-    if (s.behind) continue;
+    if (!l.shown) continue;
+    const s = { x: l.sx, y: l.sy };
     const w = g.measureText(l.text).width + 10 * k, h = 18 * k;
+    g.save();
+    g.translate(s.x * k, s.y * k);
+    if (l.rot) g.rotate(l.rot * Math.PI / 180);
+    g.translate(-s.x * k, -s.y * k);
     g.fillStyle = 'rgba(255,255,255,.92)';
     g.fillRect(s.x * k - w / 2, s.y * k - h / 2, w, h);
     g.strokeStyle = '#c3cad3'; g.lineWidth = k;
     g.strokeRect(s.x * k - w / 2, s.y * k - h / 2, w, h);
-    g.fillStyle = l.cls && l.cls.includes('dim') ? '#b02a1c' : '#1f4f96';
+    g.fillStyle = l.cls && l.cls.includes('adim') ? '#0b6e79' : l.cls && l.cls.includes('dim') ? '#b02a1c' : '#1f4f96';
     g.fillText(l.text, s.x * k, s.y * k);
+    g.restore();
   }
   try { return cv.toDataURL('image/png'); } catch (e) { return img; }
 }
@@ -984,14 +1024,16 @@ function showHelp() {
       <h5>視点</h5>
       <ul><li>何もない所をドラッグ＝回転、右ドラッグ（またはホイールを押してドラッグ）＝移動、ホイール＝拡大縮小</li>
       <li><kbd>1</kbd> 立体　<kbd>2</kbd> 平面　<kbd>3</kbd> 正面　<kbd>4</kbd> 側面　<kbd>F</kbd> 全体</li>
-      <li>「断面」で、指定の高さから上を隠して中を見る</li></ul>
+      <li>「断面」で、指定の高さから上を隠して中を見る</li>
+      <li>「寸法表示」（<kbd>D</kbd>）で、選んだ部材の外形寸法（幅・奥行・高さ）と、板の割付寸法（棚板の間隔・側板と内法など）を自動で描く。何も選んでいないときは図面全体。正面・平面・側面にすると、その図で読める側に出る。「画像」で寸法ごと書き出せる</li></ul>
       <h5>キー操作</h5>
       <ul><li><kbd>V</kbd> 選択　<kbd>W</kbd> 壁　<kbd>M</kbd> 寸法　<kbd>R</kbd> 90°回転　<kbd>Delete</kbd> 削除　<kbd>Esc</kbd> 中止</li>
       <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> 元に戻す　<kbd>Ctrl</kbd>+<kbd>Y</kbd> やり直し　<kbd>Ctrl</kbd>+<kbd>D</kbd> 複製　<kbd>Ctrl</kbd>+<kbd>C</kbd>／<kbd>V</kbd> コピー・貼り付け</li>
       <li><kbd>Ctrl</kbd>+<kbd>G</kbd> グループ　<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> 解除　<kbd>Ctrl</kbd>+<kbd>A</kbd> すべて選択　<kbd>Ctrl</kbd>+<kbd>S</kbd> 保存</li></ul>
       <h5>保存</h5>
       <ul><li>作業中の図面は、このブラウザに自動で保存され、次に開いたとき続きから始まる</li>
-      <li>「保存」でJSONファイルに書き出し、「開く」で読み込む（画面へファイルをドロップしても開ける）</li></ul>
+      <li>「保存」でJSONファイルに書き出し、「開く」で読み込む（画面へファイルをドロップしても開ける）</li>
+      <li>棚だけを作るときは「新規」で空の図面にしてから、棚を置く</li></ul>
       <h5>注意</h5>
       <ul><li>部材の寸法は呼び寸法の目安です。製品の実寸・定尺は仕入先の資料で確認してください</li>
       <li>下地の割付は一般的な納まりの目安です。構造・防火・固定方法などの判断は、設計図書と担当者の確認を優先してください</li></ul>
@@ -1198,6 +1240,7 @@ function onKey(e) {
   else if (k === 'm') setTool('measure');
   else if (k === 'r') rotateSel('z');
   else if (k === 'f') A.fit();
+  else if (k === 'd') A.autodim();
   else if ('1234'.includes(k) && k) setViewByName(['iso', 'top', 'front', 'right'][Number(k) - 1]);
 }
 
@@ -1219,6 +1262,7 @@ function init() {
   window.addEventListener('pointerup', onUp);
   view.dom.addEventListener('contextmenu', e => e.preventDefault());
   view.dom.addEventListener('dblclick', () => { if (S.tool === 'wall') endWallChain(); });
+  view.controls.addEventListener('change', () => { if (S.autoDim && updateAutoDims()) updateLabels(); });
   view.controls.addEventListener('change', () => { $('#viewInfo').textContent = `${view.isOrtho ? '平行投影' : '透視投影'}・刻み ${S.grid}mm${S.osnap ? '・吸着あり' : ''}`; });
   window.addEventListener('keydown', onKey);
 
@@ -1280,6 +1324,7 @@ function init() {
     refresh(false);
   });
 
+  try { if (localStorage.getItem(SAVE_KEY + '.autodim') === '0') S.autoDim = false; } catch (e) { /* 既定のまま */ }
   let restored = false;
   try {
     const saved = localStorage.getItem(SAVE_KEY);

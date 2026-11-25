@@ -232,6 +232,38 @@ const obj = readFileSync(await (await dl4).path(), 'utf8');
 assert.ok(obj.includes('\nv ') && obj.includes('\nf '));
 ok('画像とOBJを書き出せる');
 
+// 棚だけを作図して、寸法表示
+page.once('dialog', d => d.accept());
+await page.click('[data-act=new]');
+assert.equal(await st(() => window.__zosaku.S.doc.parts.length), 0);
+await page.click('#lib .item:has-text("箱物・棚")');
+await page.click('#dlgFoot button.primary');
+await page.waitForFunction(() => window.__zosaku.S.place);
+await clickAt([0, 0, 0]);
+assert.equal(await st(() => window.__zosaku.S.doc.parts.length), 9, '側板2・天板・地板・棚板3・背板・台輪');
+ok('「新規」で空の図面にして、棚だけを置ける');
+await page.keyboard.press('3');
+await page.waitForTimeout(300);
+const shown = () => page.$$eval('#labels .lbl.adim', els => els.filter(e => e.style.display !== 'none').map(e => e.textContent));
+let adims = await shown();
+for (const v of ['900', '1800', '864']) assert.ok(adims.includes(v), `寸法 ${v} が出る（${adims.join(',')}）`);
+assert.equal(await page.$$eval('#labels .lbl.size', els => els.length), 0, '寸法表示中は、部材ごとの寸法札を重ねない');
+ok('寸法表示：正面図で外形（900・1800）と内法（864）などが出る: ' + adims.join(' '));
+await shot('shelf_front_dims');
+await page.keyboard.press('Escape');
+await page.waitForTimeout(100);
+adims = await shown();
+assert.ok(adims.includes('900') && adims.includes('1800'), '何も選ばなくても、棚だけの図面なら寸法が出る');
+await page.keyboard.press('d');
+assert.equal((await shown()).length, 0);
+await page.keyboard.press('d');
+assert.ok((await shown()).length > 3);
+ok('D キーで寸法表示の入り切り');
+const dl5 = page.waitForEvent('download');
+await page.click('[data-act=png]');
+assert.match((await dl5).suggestedFilename(), /\.png$/);
+ok('寸法つきで画像に書き出せる');
+
 await page.click('[data-act=help]'); await shot('help'); await page.click('#dlgFoot button.primary');
 
 assert.deepEqual(errors, [], 'コンソールにエラーが出ていない');
