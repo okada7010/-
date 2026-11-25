@@ -55,8 +55,26 @@
   .summary .late b { color: var(--danger); }
   #sync { font-size: 12px; color: var(--sub); }
 
+  /* 月別タブ（左） */
+  .body { flex: 1; min-height: 0; display: flex; }
+  #months {
+    flex: 0 0 148px; overflow-y: auto; background: var(--card); border-right: 1px solid var(--line);
+    padding: 10px 8px; display: flex; flex-direction: column; gap: 2px;
+  }
+  #months .mhead { font-size: 12px; color: var(--sub); padding: 2px 8px 6px; }
+  #months button {
+    border: 0; background: transparent; border-radius: 8px; padding: 7px 8px; text-align: left;
+    display: flex; gap: 6px; align-items: center; width: 100%;
+  }
+  #months button:hover { background: var(--field); }
+  #months button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  #months button .mlabel { flex: 1; }
+  #months button .mcount { font-size: 12px; color: var(--sub); font-weight: normal; }
+  #months button.on .mcount { color: inherit; }
+  #months button.now .mlabel::after { content: "（今月）"; font-size: 11px; font-weight: normal; }
+
   /* ボード */
-  main { flex: 1; min-height: 0; overflow: auto; }
+  main { flex: 1; min-width: 0; min-height: 0; overflow: auto; }
   #board { display: flex; gap: 12px; padding: 14px 16px; align-items: flex-start; min-height: 100%; }
   .column {
     flex: 0 0 272px; background: var(--col); border-radius: 12px; display: flex; flex-direction: column;
@@ -133,6 +151,13 @@
 
   @media (max-width: 640px) {
     #search { width: 100%; order: 10; }
+    .body { flex-direction: column; }
+    #months {
+      flex: none; flex-direction: row; overflow-x: auto; overflow-y: hidden; border-right: 0;
+      border-bottom: 1px solid var(--line); padding: 6px 8px; gap: 4px;
+    }
+    #months .mhead { display: none; }
+    #months button { width: auto; flex: none; white-space: nowrap; }
     .column { flex-basis: 84vw; max-height: none; }
     #board { scroll-snap-type: x mandatory; }
     .column { scroll-snap-align: center; }
@@ -162,10 +187,13 @@
   <div id="summary" class="summary"></div>
 </header>
 
-<main>
-  <div id="board"></div>
-  <div id="list" hidden></div>
-</main>
+<div class="body">
+  <nav id="months" aria-label="納期の月で絞り込み"></nav>
+  <main>
+    <div id="board"></div>
+    <div id="list" hidden></div>
+  </main>
+</div>
 
 <div id="modalRoot"></div>
 <div id="toast" hidden role="status"></div>
@@ -331,6 +359,7 @@
     view: store('view') === 'list' ? 'list' : 'board',
     search: '',
     owner: '',
+    month: store('month') || '',   // 月別タブ：''＝すべて、'YYYY-MM'＝納期がその月、'none'＝納期なし
     openId: null,      // 開いている案件のID（'new' は新規作成中）
     busy: 0,
     dragId: null
@@ -409,7 +438,13 @@
     if (due <= soonLimit()) return 'soon';
     return '';
   }
-  function visibleProjects() {
+  /** 納期の月（'YYYY-MM'）。納期が空・日付でないときは 'none'。 */
+  function monthOf(p) {
+    var m = /^(\d{4})-(\d{2})-\d{2}$/.exec(p.due || '');
+    return m ? m[1] + '-' + m[2] : 'none';
+  }
+  /** 検索・担当者で絞り込んだ案件（月別タブの件数はこれを数える）。 */
+  function searchedProjects() {
     var q = state.search.trim().toLowerCase();
     return state.data.projects.filter(function (p) {
       if (state.owner && p.owner !== state.owner) return false;
@@ -417,11 +452,17 @@
       return [p.name, p.customer, p.code, p.id].join(' ').toLowerCase().indexOf(q) >= 0;
     });
   }
+  function visibleProjects() {
+    var list = searchedProjects();
+    if (!state.month) return list;
+    return list.filter(function (p) { return monthOf(p) === state.month; });
+  }
 
   /* ================= 描画 ================= */
 
   function render() {
     renderHeader();
+    renderMonths();
     if (state.view === 'board') renderBoard(); else renderList();
     $('board').hidden = state.view !== 'board';
     $('list').hidden = state.view !== 'list';
@@ -456,6 +497,36 @@
     box.appendChild(h('span', { class: late ? 'late' : '' }, ['納期超過 ', h('b', { text: String(late) }), ' 件']));
     box.appendChild(h('span', {}, ['7日以内に納期 ', h('b', { text: String(soon) }), ' 件']));
     box.appendChild(h('span', { class: lateTasks ? 'late' : '' }, ['期限超過のタスク ', h('b', { text: String(lateTasks) }), ' 件']));
+  }
+
+  function renderMonths() {
+    var counts = {};
+    var list = searchedProjects();
+    list.forEach(function (p) { var k = monthOf(p); counts[k] = (counts[k] || 0) + 1; });
+    var thisMonth = today().slice(0, 7);
+    var keys = Object.keys(counts).filter(function (k) { return k !== 'none'; });
+    if (keys.indexOf(thisMonth) < 0) keys.push(thisMonth);
+    if (state.month && state.month !== 'none' && keys.indexOf(state.month) < 0) keys.push(state.month);
+    keys.sort();
+    var year = String(new Date().getFullYear());
+    function tab(key, label, count, extra) {
+      return h('button', {
+        type: 'button', class: (state.month === key ? 'on' : '') + (extra || ''),
+        'aria-pressed': state.month === key ? 'true' : 'false',
+        onclick: function () { state.month = key; store('month', key || null); render(); }
+      }, [h('span', { class: 'mlabel', text: label }), h('span', { class: 'mcount', text: String(count) })]);
+    }
+    var box = $('months');
+    var top = box.scrollTop, left = box.scrollLeft;
+    box.textContent = '';
+    box.appendChild(h('div', { class: 'mhead', text: '納期の月' }));
+    box.appendChild(tab('', 'すべて', list.length));
+    keys.forEach(function (k) {
+      var label = (k.slice(0, 4) === year ? '' : k.slice(0, 4) + '年') + Number(k.slice(5)) + '月';
+      box.appendChild(tab(k, label, counts[k] || 0, k === thisMonth ? ' now' : ''));
+    });
+    if (counts.none || state.month === 'none') box.appendChild(tab('none', '納期なし', counts.none || 0));
+    box.scrollTop = top; box.scrollLeft = left;
   }
 
   function progressBar(id) {

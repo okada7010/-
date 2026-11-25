@@ -47,8 +47,10 @@ function makeEnv() {
   let uuid = 0;
   const ss = {
     getSheetByName: (n) => sheets[n] || null,
-    insertSheet: (n) => (sheets[n] = makeSheet(n))
+    insertSheet: (n) => (sheets[n] = makeSheet(n)),
+    toast() {}
   };
+  const mails = [];
   const env = {
     SpreadsheetApp: {
       getActive: () => ss, flush() {},
@@ -65,14 +67,18 @@ function makeEnv() {
         .map((b) => (b > 127 ? b - 256 : b)),
       getUuid: () => crypto.createHash('md5').update(String(++uuid)).digest('hex'),
       formatDate: () => '2026-11-24 10:00:00',
-      sleep() {}
+      sleep() {},
+      newBlob: (content, type, name) => ({ content, type, getName: () => name })
     },
+    MailApp: { sendEmail(m) { if (env.mailFails) throw new Error('送信できません'); mails.push(m); } },
+    Session: { getEffectiveUser: () => ({ getEmail: () => 'owner@example.com' }) },
     HtmlService: {}
   };
   vm.createContext(env);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'Code.gs'), 'utf8'), env);
   env.sheets = sheets;
   env.props = props;
+  env.mails = mails;
   return env;
 }
 
@@ -211,6 +217,65 @@ test('シートの列順を入れ替えても、見出し名で読み書きで�
   const d = env.apiSaveProject(token, '担当A', { name: '案件', customer: '顧客' });
   assert.strictEqual(d.projects[0].customer, '顧客');
   assert.strictEqual(sh.data[1][sh.data[0].indexOf('案件名')], '案件');
+});
+
+/** 古い整理のテスト用：完了2件（古い・新しい）、外した古い1件、進行中の古い1件を作る。 */
+function oldData() {
+  const { env, token } = ready();
+  ['古い完了', '新しい完了', '古い外した案件', '古い進行中', '古い完了だがタスクが新しい'].forEach((name) =>
+    env.apiSaveProject(token, '担当A', { name }));
+  const sh = env.sheets['案件'];
+  const col = (n) => sh.data[0].indexOf(n);
+  const set = (row, status, archived, updatedAt) => {
+    sh.data[row][col('状態')] = status; sh.data[row][col('アーカイブ')] = archived; sh.data[row][col('更新日時')] = updatedAt;
+  };
+  set(1, '完了', 'FALSE', '2026-04-01 09:00:00');
+  set(2, '完了', 'FALSE', '2026-10-01 09:00:00');
+  set(3, '見積', 'TRUE', '2026-03-01 09:00:00');
+  set(4, '施工中', 'FALSE', '2026-01-01 09:00:00');
+  set(5, '完了', 'FALSE', '2026-02-01 09:00:00');
+  env.apiSaveTask(token, '担当A', { projectId: 'P-0001', name: '検収, "立会い"あり' });
+  env.apiSaveTask(token, '担当A', { projectId: 'P-0001', name: '請求' });
+  env.apiSaveTask(token, '担当A', { projectId: 'P-0004', name: '施工' });
+  env.apiSaveTask(token, '担当A', { projectId: 'P-0005', name: '最近のタスク' });
+  const ts = env.sheets['タスク'];
+  const tcol = ts.data[0].indexOf('更新日時');
+  ts.data[1][tcol] = ts.data[2][tcol] = ts.data[3][tcol] = '2026-04-02 09:00:00';
+  env.props.BOX_UPLOAD_EMAIL = 'upload@example.com';
+  return { env, token };
+}
+
+test('古いデータの整理：終わって6か月を過ぎた案件とそのタスクだけを、CSVを送ってから削除する', () => {
+  const { env } = oldData();
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(env.archiveOld_('2026-05-24 10:00:00', true))), { projects: 2, tasks: 2, files: [] });
+  assert.strictEqual(env.sheets['案件'].data.length, 6, '件数の確認だけでは削除しない');
+  const r = env.archiveOld_('2026-05-24 10:00:00', false);
+  assert.strictEqual(r.projects, 2);
+  assert.strictEqual(r.tasks, 2);
+  const ids = env.sheets['案件'].data.slice(1).map((x) => x[0]);
+  assert.deepStrictEqual(ids, ['P-0002', 'P-0004', 'P-0005']);
+  assert.deepStrictEqual(env.sheets['タスク'].data.slice(1).map((x) => x[2]), ['施工', '最近のタスク']);
+  assert.strictEqual(env.mails.length, 1);
+  const m = env.mails[0];
+  assert.strictEqual(m.to, 'upload@example.com');
+  assert.strictEqual(m.cc, 'owner@example.com');
+  const [pcsv, tcsv] = m.attachments.map((b) => b.content);
+  assert.ok(pcsv.startsWith('\uFEFF"案件ID","案件名"'));
+  assert.strictEqual(pcsv.trim().split('\r\n').length, 3);
+  assert.ok(pcsv.includes('"P-0001","古い完了"') && pcsv.includes('"P-0003","古い外した案件"'));
+  assert.ok(tcsv.includes('"検収, ""立会い""あり"'), 'カンマと引用符を含む値も壊れない');
+  assert.ok(tcsv.split('\r\n')[0].endsWith('"案件名"') && tcsv.includes('"古い完了"'));
+});
+
+test('古いデータの整理：CSVの送信に失敗したら削除しない。保存先が未設定なら自動実行はエラーにする', () => {
+  const { env } = oldData();
+  env.mailFails = true;
+  assert.throws(() => env.archiveOld_('2026-05-24 10:00:00', false), /送信できません/);
+  assert.strictEqual(env.sheets['案件'].data.length, 6);
+  assert.strictEqual(env.sheets['タスク'].data.length, 5);
+  delete env.props.BOX_UPLOAD_EMAIL;
+  assert.throws(() => env.monthlyCleanup(), /未設定/);
+  assert.strictEqual(env.sheets['案件'].data.length, 6);
 });
 
 let failed = 0;
