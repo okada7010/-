@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>動くデスクトップ</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #080c1c; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+/* =========================================================
+   動くデスクトップ（Lively Wallpaper 用）
+   ・背景：CPU負荷で速さと色が変わるパーティクル
+   ・右パネル：時計 / CPU・メモリ・ネットのゲージ / 60秒グラフ / GPU
+   データは Lively の System Data API（livelySystemInformation）から受け取る。
+   Lively 以外（ブラウザ）で開くと、デモ用の値で動く。
+   ========================================================= */
+
+// ---------- 設定 ----------
+const CFG = {
+  theme: "pixel",       // "pixel"（黒背景＋ドット絵の女の子）/ "network"（粒と線）
+  fps: 30,              // 描画の上限（下げるほど軽い。15～60）
+  particles: 60,        // 背景の粒の数（減らすほど軽い）
+  linkDist: 150,        // 粒同士を線で結ぶ距離（1080p基準）
+  layout: "claude",     // "claude"（左＝PC、右＝Claude を大きく）/ "wide"（PC＋Claude・Gemini）/ "tall"（縦長1列）
+  panelSide: "right",   // "right" / "left"
+  panelScale: 0.9,      // パネルの大きさ（1.0 = 標準）
+  fontScale: 1.2,       // 小さい文字の拡大率（1.0 = 元の大きさ）
+  panelMarginX: 110,    // 画面の端からの距離（px）※右端のアイコン列を避ける
+  panelMarginY: 80,     // 画面の上からの距離（px）※上段のアイコンを避ける
+  panelAlpha: 0.88,     // パネルの不透明度
+  history: 60,          // グラフの点数（Livelyは約1秒ごとに送信 → 60秒）
+  showAI: true,         // AI 使用量（Claude / Gemini CLI）を表示する
+};
+
+const C = {
+  bgTop: [8, 12, 28], bgBottom: [18, 26, 54],
+  panel: "#0d1530", edge: "#24345f", text: "#e6ecff", sub: "#8a97c0", track: "#1c2748",
+  graphBg: "#0a1026", grid: "#16203f",
+  cpu: "#38d6ff", mem: "#c77dff", down: "#4ade80", up: "#fb923c", gpu: "#facc15",
+  claude: "#e08a5f", gemini: "#6aa1ff", warn: "#ef4444",
+};
+// ドット絵テーマの配色（黒背景に合わせたパステル）
+if (CFG.theme === "pixel") Object.assign(C, {
+  bgTop: [0, 0, 0], bgBottom: [0, 0, 0],
+  edge: "#34344c", text: "#f2f2ff", sub: "#8b8ba8", track: "#1b1b2a",
+  graphBg: "#05050a", grid: "#15152a",
+  cpu: "#7ee8ff", mem: "#ff7eb6", down: "#9dff7e", up: "#ffd84d", gpu: "#ffd84d",
+});
+const PANEL_RGB = CFG.theme === "pixel" ? "6,6,14" : "13,21,48";
+const FONT = '"Yu Gothic UI","Meiryo UI","Meiryo","Noto Sans JP",sans-serif';
+const WEEK = "日月火水木金土";
+
+// ---------- 状態 ----------
+const S = {
+  cpu: 0, gpu: 0, memPct: 0, memUsed: 0, memTotal: 0, down: 0, up: 0,
+  nameCpu: "", nameGpu: "", nameNet: "",
+  hist: { cpu: [], mem: [], down: [], up: [] },
+  disp: { cpu: 0, mem: 0, net: 0 },
+  lastData: 0, demo: false,
+};
+for (const k in S.hist) S.hist[k] = new Array(CFG.history).fill(0);
+
+function push(k, v) { const a = S.hist[k]; a.push(v); if (a.length > CFG.history) a.shift(); }
+
+function ingest(o) {
+  S.cpu = num(o.CurrentCpu);
+  S.gpu = num(o.CurrentGpu3D);
+  S.memTotal = num(o.TotalRam);
+  S.memUsed = Math.max(0, S.memTotal - num(o.CurrentRamAvail));
+  S.memPct = S.memTotal ? S.memUsed / S.memTotal * 100 : 0;
+  S.down = num(o.CurrentNetDown);
+  S.up = num(o.CurrentNetUp);
+  S.nameCpu = o.NameCpu || ""; S.nameGpu = o.NameGpu || ""; S.nameNet = o.NameNetCard || "";
+  push("cpu", S.cpu); push("mem", S.memPct); push("down", S.down); push("up", S.up);
+}
+function num(v) { v = Number(v); return isFinite(v) ? v : 0; }
+
+// Lively から呼ばれる（LivelyInfo.json の Arguments に --system-information が必要）
+window.livelySystemInformation = function (data) {
+  try { ingest(JSON.parse(data)); S.lastData = performance.now(); S.demo = false; } catch (e) {}
+};
+
+// Lively 以外で開いた場合のデモ値
+let demoT = 0;
+setInterval(() => {
+  if (performance.now() - S.lastData < 3000) return;
+  S.demo = true; demoT += 1;
+  const wave = (p, a) => (Math.sin(demoT / p) + 1) / 2 * a;
+  ingest({
+    CurrentCpu: 8 + wave(9, 30) + (Math.random() < 0.08 ? 50 : 0) + Math.random() * 6,
+    CurrentGpu3D: 5 + wave(13, 25), TotalRam: 16384, CurrentRamAvail: 16384 - (6000 + wave(20, 3000)),
+    CurrentNetDown: Math.random() < 0.15 ? 2e6 + Math.random() * 6e6 : Math.random() * 2e5,
+    CurrentNetUp: Math.random() * 1.2e5, NameCpu: "デモ表示（Lively以外）", NameGpu: "", NameNetCard: "",
+  });
+}, 1000);
+
+// ---------- AI 使用量（ai_usage_collector.py が書き出す usage.js を読み込む） ----------
+window.AI_USAGE = null;
+function loadUsage() {
+  const el = document.createElement("script");
+  el.src = "usage.js?t=" + Date.now();
+  el.onload = el.onerror = () => el.remove();
+  document.head.appendChild(el);
+}
+loadUsage();
+setInterval(loadUsage, 60 * 1000);
+
+function demoUsage() {
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 864e5);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const r = (a) => Math.round(a * (0.3 + Math.random()));
+  return {
+    updated: "デモ", demo: true,
+    claude: {
+      limits: [
+        { label: "5時間枠", pct: 38, resets_at: new Date(Date.now() + 2.3 * 36e5).toISOString() },
+        { label: "週間（全モデル）", pct: 62, resets_at: new Date(Date.now() + 3.2 * 864e5).toISOString() },
+      ],
+      daily: days.map(d => ({ date: d, in: r(4e5), out: r(1e5), cache: 0 })),
+    },
+    gemini: { daily: days.map(d => ({ date: d, in: r(2e5), out: r(5e4), cache: 0 })), sources: ["デモ"] },
+  };
+}
+
+function fmtTok(n) {
+  if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+  if (n >= 1e3) return (n / 1e3).toFixed(0) + "K";
+  return String(Math.round(n));
+}
+function fmtReset(iso) {
+  if (!iso) return "";
+  const ms = new Date(iso) - Date.now();
+  if (!isFinite(ms)) return "";
+  if (ms <= 0) return "まもなくリセット";
+  const h = Math.floor(ms / 36e5), m = Math.floor(ms % 36e5 / 6e4);
+  if (h >= 24) {
+    const d = new Date(iso), p2 = n => String(n).padStart(2, "0");
+    return `${d.getMonth() + 1}/${d.getDate()} ${p2(d.getHours())}:${p2(d.getMinutes())} リセット`;
+  }
+  return `あと${h}時間${m}分でリセット`;
+}
+
+// ---------- 書式 ----------
+function fmtSpeed(Bps) {
+  const b = Bps * 8;
+  if (b >= 1e9) return [(b / 1e9).toFixed(2), "Gbps"];
+  if (b >= 1e6) return [(b / 1e6).toFixed(1), "Mbps"];
+  if (b >= 1e3) return [(b / 1e3).toFixed(0), "kbps"];
+  return [b.toFixed(0), "bps"];
+}
+function fmtMB(mb) { return mb >= 1024 ? (mb / 1024).toFixed(1) + " GB" : mb.toFixed(0) + " MB"; }
+function netScale() {
+  const peak = Math.max(1, ...S.hist.down, ...S.hist.up) * 8;
+  const mag = Math.pow(10, Math.floor(Math.log10(peak)));
+  for (const m of [1, 2, 5, 10]) if (peak <= m * mag) return m * mag / 8;
+  return 10 * mag / 8;
+}
+const lerp = (a, b, t) => a + (b - a) * t;
+const mix = (c1, c2, t) => c1.map((v, i) => Math.round(lerp(v, c2[i], t)));
+const rgb = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+function loadColor(v) {
+  const c0 = [56, 214, 255], c1 = [250, 204, 21], c2 = [239, 68, 68], t = v / 100;
+  return t < 0.6 ? mix(c0, c1, t / 0.6) : mix(c1, c2, Math.min(1, (t - 0.6) / 0.4));
+}
+
+// ---------- 描画準備 ----------
+const cv = document.getElementById("c");
+const ctx = cv.getContext("2d");
+let W = 0, H = 0, s = 1, bs = 1, parts = [], bgGrad, panelH = 800;
+const px = { stars: [], trail: [], girl: null, t: 0 };   // ドット絵テーマの状態
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  bs = H / 1080;                                        // 背景用
+  s = Math.min(H / 1080, W / 1920) * CFG.panelScale;    // パネル用
+  bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0, rgb(C.bgTop)); bgGrad.addColorStop(1, rgb(C.bgBottom));
+  parts = Array.from({ length: CFG.particles }, () => ({
+    x: Math.random() * W, y: Math.random() * H,
+    vx: Math.random() * 2 - 1, vy: Math.random() * 2 - 1, r: (2 + Math.random() * 2.5) * bs,
+  }));
+  px.girl = null;   // ドット絵テーマは次の描画で作り直す
+}
+window.addEventListener("resize", resize);
+resize();
+
+function rr(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+// 小さい文字ほどしっかり拡大（大きい時計などは控えめ）
+const fsz = size => size * s * (size <= 14 ? CFG.fontScale : 1 + (CFG.fontScale - 1) * 0.4);
+function text(t, x, y, size, color, weight = "normal", align = "left", base = "top") {
+  ctx.font = `${weight} ${fsz(size)}px ${FONT}`;
+  ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = base;
+  ctx.fillText(t, x, y);
+}
+
+// ---------- 背景（ドット絵テーマ） ----------
+const SPARK_COLORS = ["#ff7eb6", "#ffd84d", "#7ee8ff", "#9dff7e", "#ffffff", "#c9a7ff"];
+// アリス風の女の子（オリジナルのドット絵。. = 透明、右向き）
+const GIRL_BODY = [
+  "....hhhhhh....",
+  "...bbbbbbbb...",
+  "..hhhhhhhhhh..",
+  "..hhsssssshh..",
+  "..hhsesssesh..",
+  "..hhsssmsssh..",
+  "..hhhssssshh..",
+  "..hHhdaaadhHh.",
+  "...hdaaaaadh..",
+  "...ddaaaaadd..",
+  "..sddaaaaadds.",
+  "...ddaaaaadd..",
+  "..dddaaaaaddd.",
+  ".ddddaaaaadddd",
+  ".DdddAaaaAdddD",
+  ".DDDDDDDDDDDD.",
+];
+const GIRL_LEGS = [
+  ["....ww..ww....", "....ww..ww....", "....kk..kk...."],   // 立ち
+  ["...ww....ww...", "..ww......ww..", "..kk......kk.."],   // 歩き1
+  [".....wwww.....", ".....ww.ww....", ".....kk.kk...."],   // 歩き2
+];
+const GIRL_COL = { h: "#ffd84d", H: "#e0a82e", b: "#4b4b66", s: "#ffd9b8", e: "#3b5bff",
+                   m: "#ff7eb6", d: "#4f8cff", D: "#2f5fd0", a: "#ffffff", A: "#d8d8ee",
+                   w: "#f2f2ff", k: "#5b4b70" };
+function initPixel() {
+  const u = Math.max(2, Math.round(3 * bs));          // 1ドットの大きさ（星）
+  px.u = u;
+  px.stars = Array.from({ length: Math.round(W * H / 26000) }, () => ({
+    x: Math.random() * W, y: Math.random() * H,
+    c: SPARK_COLORS[(Math.random() * SPARK_COLORS.length) | 0],
+    ph: Math.random() * 6.28, sp: 0.6 + Math.random() * 1.8, big: Math.random() < 0.35,
+  }));
+  px.trail = [];
+  px.girl = { x: W * 0.4, y: H * 0.45, tx: W * 0.3, ty: H * 0.4, dir: 1, wait: 0 };
+}
+
+function pixelPlus(x, y, u, col, big) {
+  x = Math.round(x / u) * u; y = Math.round(y / u) * u;
+  ctx.fillStyle = col;
+  ctx.fillRect(x, y, u, u);
+  if (big) {
+    ctx.fillRect(x - u, y, u, u); ctx.fillRect(x + u, y, u, u);
+    ctx.fillRect(x, y - u, u, u); ctx.fillRect(x, y + u, u, u);
+  }
+}
+
+function drawPixelBackground(dt) {
+  if (!px.girl) initPixel();
+  const u = px.u, load = S.cpu / 100;
+  px.t += dt;
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+
+  // またたく星
+  for (const st of px.stars) {
+    const v = Math.sin(px.t * st.sp + st.ph);
+    if (v < -0.2) continue;
+    ctx.globalAlpha = 0.35 + 0.65 * Math.max(0, v);
+    pixelPlus(st.x, st.y, u, st.c, st.big && v > 0.55);
+  }
+  ctx.globalAlpha = 1;
+
+  // 女の子の移動（パネルの外側を歩く。CPU負荷で速くなる）
+  const G = px.girl, rows = GIRL_BODY.length + 3;
+  const gu = Math.max(3, Math.round(5.5 * bs));         // 女の子の1ドットの大きさ
+  const sw = GIRL_BODY[0].length * gu, sh = rows * gu;
+  const panelW = panelWidth() + CFG.panelMarginX * 2;
+  const xMin = CFG.panelSide === "left" ? panelW : W * 0.05;
+  const xMax = CFG.panelSide === "left" ? W * 0.95 - sw : W - panelW - sw;
+  const dx = G.tx - G.x, dy = G.ty - G.y, d = Math.hypot(dx, dy);
+  const speed = (30 + 200 * load) * bs;
+  let moving = false;
+  if (G.wait > 0) {
+    G.wait -= dt;
+  } else if (d < 6) {
+    G.tx = xMin + Math.random() * Math.max(10, xMax - xMin);
+    G.ty = H * 0.12 + Math.random() * H * 0.62;
+    G.wait = 0.8 + Math.random() * 2.5 * (1 - load);   // 負荷が低いとのんびり休む
+  } else {
+    G.x += dx / d * speed * dt; G.y += dy / d * speed * dt;
+    if (Math.abs(dx) > 2) G.dir = dx > 0 ? 1 : -1;
+    moving = true;
+  }
+  const bob = Math.sin(px.t * 2.0) * 1.5 * gu;
+  const gx = Math.round(G.x / gu) * gu, gy = Math.round((G.y + bob) / gu) * gu;
+
+  // 通ったあとにキラキラを残す（CPU負荷で増える）
+  if (Math.random() < ((moving ? 0.25 : 0.06) + 0.8 * load) * dt * 30) {
+    px.trail.push({ x: gx + sw / 2 - G.dir * sw * 0.7 + (Math.random() - .5) * sw,
+                    y: gy + sh * 0.55 + (Math.random() - .5) * sh,
+                    c: SPARK_COLORS[(Math.random() * SPARK_COLORS.length) | 0], life: 1,
+                    big: Math.random() < 0.6 });
+  }
+  for (const p of px.trail) p.life -= dt / 2.5;
+  px.trail = px.trail.filter(p => p.life > 0);
+  for (const p of px.trail) {
+    ctx.globalAlpha = Math.min(1, p.life * 1.5);
+    pixelPlus(p.x, p.y, u, p.c, p.big && p.life > 0.4);
+  }
+  ctx.globalAlpha = 1;
+
+  // 本体（歩いているときは足を交互に、向きで左右反転）
+  const legs = moving ? GIRL_LEGS[1 + (Math.floor(px.t * 6) % 2)] : GIRL_LEGS[0];
+  const sprite = GIRL_BODY.concat(legs), wN = GIRL_BODY[0].length;
+  for (let r = 0; r < sprite.length; r++) {
+    const row = sprite[r];
+    for (let c = 0; c < wN; c++) {
+      const ch = row[G.dir > 0 ? c : wN - 1 - c];
+      if (!ch || ch === ".") continue;
+      ctx.fillStyle = GIRL_COL[ch];
+      ctx.fillRect(gx + c * gu, gy + r * gu, gu, gu);
+    }
+  }
+}
+
+// ---------- 背景（粒と線テーマ） ----------
+function drawBackground(dt) {
+  if (CFG.theme === "pixel") return drawPixelBackground(dt);
+  ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
+  const speed = (0.4 + 2.6 * S.cpu / 100) * bs * dt * 30;
+  const pc = rgb(loadColor(S.cpu));
+  const ld = CFG.linkDist * bs;
+  for (const p of parts) {
+    p.x += p.vx * speed; p.y += p.vy * speed;
+    if (p.x < 0 || p.x > W) { p.vx *= -1; p.x = Math.min(Math.max(p.x, 0), W); }
+    if (p.y < 0 || p.y > H) { p.vy *= -1; p.y = Math.min(Math.max(p.y, 0), H); }
+  }
+  ctx.lineWidth = 1;
+  for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
+    const a = parts[i], b = parts[j], dx = a.x - b.x, dy = a.y - b.y, d = Math.hypot(dx, dy);
+    if (d < ld) {
+      ctx.strokeStyle = `rgba(90,150,230,${(1 - d / ld) * 0.6})`;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+  }
+  ctx.fillStyle = pc;
+  for (const p of parts) { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); }
+}
+
+// ---------- パネル ----------
+function gauge(cx, cy, r, v, col, val, unit, label) {
+  const lw = 11 * s, a0 = Math.PI * 0.75, span = Math.PI * 1.5;
+  ctx.lineCap = "round"; ctx.lineWidth = lw;
+  ctx.strokeStyle = C.track; ctx.beginPath(); ctx.arc(cx, cy, r, a0, a0 + span); ctx.stroke();
+  if (v > 0.3) {
+    ctx.strokeStyle = col; ctx.beginPath(); ctx.arc(cx, cy, r, a0, a0 + span * Math.min(1, v / 100)); ctx.stroke();
+  }
+  ctx.lineCap = "butt";
+  text(val, cx, cy - 4 * s, 22, C.text, "bold", "center", "middle");
+  text(unit, cx, cy + 20 * s, 10, C.sub, "normal", "center", "middle");
+  text(label, cx, cy + r + 8 * s, 13, col, "bold", "center", "middle");
+}
+
+function graph(x, y, w, h, series) {
+  ctx.fillStyle = C.graphBg; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = C.edge; ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + .5, w - 1, h - 1);
+  ctx.setLineDash([2 * s, 4 * s]); ctx.strokeStyle = C.grid;
+  for (let k = 1; k < 4; k++) { const yy = y + h * k / 4; ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + w, yy); ctx.stroke(); }
+  ctx.setLineDash([]);
+  for (const [data, max, col] of series) {
+    ctx.strokeStyle = col; ctx.lineWidth = 2 * s; ctx.lineJoin = "round";
+    ctx.beginPath();
+    data.forEach((v, i) => {
+      const px = x + w * i / (data.length - 1), py = y + h - 2 - (h - 4) * Math.min(1, v / max);
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    });
+    ctx.stroke();
+    // 塗り
+    ctx.lineTo(x + w, y + h); ctx.lineTo(x, y + h); ctx.closePath();
+    ctx.fillStyle = col + "22"; ctx.fill();
+  }
+}
+
+function sectionTitle(x0, x1, y, title, legends) {
+  text(title, x0, y, 13, C.text, "bold");
+  let x = x1;
+  for (let i = legends.length - 1; i >= 0; i--) {
+    const [lab, col] = legends[i];
+    text(lab, x, y + 2 * s, 11, col, "normal", "right");
+    ctx.font = `normal ${fsz(11)}px ${FONT}`;
+    x -= ctx.measureText(lab).width + 14 * s;
+  }
+  return y + 30 * s;
+}
+
+function panelWidth() {
+  return ({ wide: 900, claude: 1018 }[CFG.layout] || 460) * s;   // claude = 左420 + 右520 + 余白
+}
+
+// ---------- Claude 専用モニター ----------
+function ringGauge(cx, cy, r, pct, col, label, sub) {
+  const lw = 16 * s, a0 = Math.PI * 0.75, span = Math.PI * 1.5;
+  ctx.lineCap = "round"; ctx.lineWidth = lw;
+  ctx.strokeStyle = C.track; ctx.beginPath(); ctx.arc(cx, cy, r, a0, a0 + span); ctx.stroke();
+  if (pct > 0.3) {
+    ctx.strokeStyle = col; ctx.beginPath();
+    ctx.arc(cx, cy, r, a0, a0 + span * Math.min(1, pct / 100)); ctx.stroke();
+  }
+  ctx.lineCap = "butt";
+  text(pct.toFixed(0), cx - 8 * s, cy - 4 * s, 44, C.text, "bold", "center", "middle");
+  text("%", cx + 30 * s, cy + 2 * s, 16, C.sub, "bold", "left", "middle");
+  text(label, cx, cy + r * 0.62, 15, col, "bold", "center", "middle");
+  if (sub) text(sub, cx, cy + r + 18 * s, 12, C.sub, "normal", "center", "middle");
+}
+const limitColor = pct => pct >= 90 ? C.warn : pct >= 70 ? C.gpu : C.claude;
+const LIMIT_LBL = { extra_usage: "追加利用", seven_day_oauth_apps: "週間（連携アプリ）" };
+
+// 右の列：Claude を大きく表示（y から描いて、描き終わりの y を返す）
+function drawClaudeColumn(ix0, ix1, iw, y) {
+  text("Claude 使用状況", ix0, y, 22, C.claude, "bold");
+  y += 38 * s;
+
+  const D = window.AI_USAGE || (S.demo ? (drawAI.demo ||= demoUsage()) : null);
+  if (!D) {
+    y += 20 * s;
+    text("ai_usage_start.bat を実行すると表示されます", ix0, y, 14, C.sub);
+    return y + 30 * s;
+  }
+  const cl = D.claude || {};
+  if (cl.error) { text(cl.error, ix0, y + 4 * s, 12, C.warn); y += 26 * s; }
+
+  // 大きな円ゲージ（5時間枠・週間）
+  const limits = cl.limits || [];
+  const find = k => limits.find(L => L.key === k || L.label === k);
+  const big = [find("five_hour") || find("5時間枠"), find("seven_day") || find("週間（全モデル）")]
+    .filter(Boolean);
+  const rest = limits.filter(L => !big.includes(L));
+  if (big.length) {
+    const r = 82 * s, cy = y + r + 18 * s, gw = iw / big.length;
+    big.forEach((L, i) => {
+      const pct = Math.max(0, Math.min(100, L.pct));
+      const name = (L.key === "five_hour" || L.label === "5時間枠") ? "5時間枠" : "週間";
+      ringGauge(ix0 + gw * (i + 0.5), cy, r, pct, limitColor(pct), name, fmtReset(L.resets_at));
+    });
+    y = cy + r + 44 * s;
+  }
+
+  // そのほかの枠（追加利用・モデル別など）
+  for (const L of rest.slice(0, 3)) {
+    const pct = Math.max(0, Math.min(100, L.pct)), col = limitColor(pct);
+    text(LIMIT_LBL[L.label] || LIMIT_LBL[L.key] || L.label, ix0, y, 14, C.text);
+    text(`${pct.toFixed(0)}%`, ix1, y, 14, col, "bold", "right");
+    y += 24 * s;
+    ctx.fillStyle = C.track; rr(ix0, y, iw, 10 * s, 5 * s); ctx.fill();
+    if (pct > 0.5) { ctx.fillStyle = col; rr(ix0, y, iw * pct / 100, 10 * s, 5 * s); ctx.fill(); }
+    y += 14 * s;
+    const rs = fmtReset(L.resets_at);
+    if (rs) { text(rs, ix1, y, 11, C.sub, "normal", "right"); y += 18 * s; }
+    y += 10 * s;
+  }
+
+  // Claude Code の日別トークン（7日）
+  const daily = cl.daily || [];
+  if (daily.length) {
+    y += 6 * s;
+    ctx.strokeStyle = C.edge; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(ix0, y); ctx.lineTo(ix1, y); ctx.stroke();
+    y += 16 * s;
+    text("Claude Code　日別トークン（このPC・7日）", ix0, y, 14, C.text, "bold");
+    y += 30 * s;
+    const max = Math.max(1, ...daily.map(tokTotal));
+    const gh = 175 * s, n = daily.length, gw = iw / n, bw = Math.max(4, gw * 0.58);
+    ctx.fillStyle = C.graphBg; ctx.fillRect(ix0, y, iw, gh);
+    for (let i = 0; i < n; i++) {
+      const bx = ix0 + gw * i + gw / 2, v = tokTotal(daily[i]), h = (gh - 22 * s) * v / max;
+      const today = i === n - 1;
+      ctx.fillStyle = today ? C.claude : C.claude + "99";
+      ctx.fillRect(bx - bw / 2, y + gh - h, bw, h);
+      if (v > 0) text(fmtTok(v), bx, y + gh - h - 4 * s, 10, today ? C.text : C.sub, "normal", "center", "bottom");
+      text(daily[i].date.slice(5).replace("-", "/"), bx, y + gh + 6 * s, 11,
+           today ? C.text : C.sub, today ? "bold" : "normal", "center");
+    }
+    y += gh + 34 * s;
+    const t = tokTotal(daily[n - 1]), w = daily.reduce((a, r) => a + tokTotal(r), 0);
+    text("今日", ix0, y, 13, C.sub);
+    text(fmtTok(t), ix0 + 50 * s, y - 6 * s, 26, C.claude, "bold");
+    text("7日合計", ix0 + iw / 2, y, 13, C.sub);
+    text(fmtTok(w), ix0 + iw / 2 + 66 * s, y - 6 * s, 26, C.text, "bold");
+    y += 40 * s;
+  }
+  text(`更新 ${D.updated || "-"}`, ix1, y, 11, C.sub, "normal", "right");
+  return y + 20 * s;
+}
+
+function drawPanel() {
+  const claude = CFG.layout === "claude";
+  const pw = panelWidth(), pad = 26 * s, wide = CFG.layout === "wide" || claude;
+  const x0 = CFG.panelSide === "left" ? CFG.panelMarginX : W - pw - CFG.panelMarginX;
+  const y0 = CFG.panelMarginY;
+  const cw = claude ? 420 * s : wide ? (pw - pad * 3) / 2 : pw - pad * 2;   // 左の列の幅
+  const ix0 = x0 + pad, ix1 = ix0 + cw, iw = cw;
+
+  ctx.fillStyle = `rgba(${PANEL_RGB},${CFG.panelAlpha})`; rr(x0, y0, pw, panelH, 22 * s); ctx.fill();
+  ctx.strokeStyle = C.edge; ctx.lineWidth = 2 * s; ctx.stroke();
+
+  let y = y0 + pad;
+  const now = new Date(), p2 = n => String(n).padStart(2, "0");
+  text(`${p2(now.getHours())}:${p2(now.getMinutes())}:${p2(now.getSeconds())}`, ix0, y, 54, C.text, "bold");
+  y += 70 * s;
+  text(`${now.getFullYear()}年${p2(now.getMonth() + 1)}月${p2(now.getDate())}日（${WEEK[now.getDay()]}）`, ix0, y, 16, C.sub);
+  if (S.demo) text("デモ表示", ix1, y + 2 * s, 12, C.gpu, "bold", "right");
+  y += 40 * s;
+
+  // ゲージ
+  const sc = netScale();
+  const tgt = { cpu: S.cpu, mem: S.memPct, net: Math.min(100, S.down / sc * 100) };
+  for (const k in tgt) S.disp[k] = lerp(S.disp[k], tgt[k], 0.12);
+  const gw = iw / 3, gr = Math.min(gw * 0.42, 62 * s), gy = y + gr + 6 * s;
+  const [nv, nu] = fmtSpeed(S.down);
+  gauge(ix0 + gw * 0.5, gy, gr, S.disp.cpu, C.cpu, S.disp.cpu.toFixed(0), "%", "CPU");
+  gauge(ix0 + gw * 1.5, gy, gr, S.disp.mem, C.mem, S.disp.mem.toFixed(0), "%", "メモリ");
+  gauge(ix0 + gw * 2.5, gy, gr, S.disp.net, C.down, nv, "↓ " + nu, "ネット");
+  y = gy + gr + 40 * s;
+
+  text(`メモリ ${fmtMB(S.memUsed)} / ${fmtMB(S.memTotal)}`, ix0, y, 12, C.sub);
+  text(`GPU ${S.gpu.toFixed(0)}%`, ix1, y, 12, C.gpu, "normal", "right");
+  y += 34 * s;
+
+  // CPU / メモリ
+  y = sectionTitle(ix0, ix1, y, "CPU / メモリ  (60秒)", [["CPU", C.cpu], ["MEM", C.mem]]);
+  const gh = 110 * s;
+  graph(ix0, y, iw, gh, [[S.hist.mem, 100, C.mem], [S.hist.cpu, 100, C.cpu]]);
+  y += gh + 24 * s;
+
+  // ネットワーク
+  y = sectionTitle(ix0, ix1, y, "ネットワーク  (60秒)", [["↓受信", C.down], ["↑送信", C.up]]);
+  graph(ix0, y, iw, gh, [[S.hist.up, sc, C.up], [S.hist.down, sc, C.down]]);
+  const [mv, mu] = fmtSpeed(sc);
+  text(`最大 ${mv} ${mu}`, ix1 - 6 * s, y + 4 * s, 10, C.sub, "normal", "right");
+  y += gh + 10 * s;
+  const [dv, du] = fmtSpeed(S.down), [uv, uu] = fmtSpeed(S.up);
+  text(`↓ ${dv} ${du}`, ix0, y, 17, C.down, "bold");
+  text(`↑ ${uv} ${uu}`, ix0 + iw / 2, y, 17, C.up, "bold");
+  y += 32 * s;
+  if (S.nameNet) text(S.nameNet.slice(0, 48), ix0, y, 11, C.sub);
+  y += 30 * s;
+
+  // CPU 名 と GPU 使用率
+  text("CPU  " + (S.nameCpu || "-").slice(0, 44), ix0, y, 11, C.sub);
+  y += 24 * s;
+  text("GPU 使用率", ix0, y, 11, C.gpu);
+  ctx.fillStyle = C.track; rr(ix0 + 95 * s, y + 3 * s, iw - 95 * s, 9 * s, 4.5 * s); ctx.fill();
+  if (S.gpu > 0.5) {
+    ctx.fillStyle = C.gpu;
+    rr(ix0 + 95 * s, y + 3 * s, (iw - 95 * s) * Math.min(1, S.gpu / 100), 9 * s, 4.5 * s); ctx.fill();
+  }
+  y += 34 * s;
+
+  let yEnd = y;
+  if (CFG.showAI) {
+    if (wide) {
+      // 右の列に AI 使用量（間に区切り線）
+      const rw = claude ? pw - pad * 3 - cw : cw;            // 右の列の幅
+      const rx0 = ix1 + pad, rx1 = rx0 + rw;
+      ctx.strokeStyle = C.edge; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(ix1 + pad / 2, y0 + pad); ctx.lineTo(ix1 + pad / 2, y0 + panelH - pad); ctx.stroke();
+      yEnd = Math.max(y, claude ? drawClaudeColumn(rx0, rx1, rw, y0 + pad)
+                                : drawAI(rx0, rx1, cw, y0 + pad));
+    } else {
+      yEnd = drawAI(ix0, ix1, iw, y);
+    }
+  }
+  panelH = yEnd + pad - y0;   // 次のフレームで中身に合わせた高さにする
+}
+
+// ---------- AI 使用量 ----------
+const tokTotal = r => (r ? (r.in || 0) + (r.out || 0) : 0);
+
+// 直近7日の日別トークン棒グラフ（目盛りはサービスごとに別）
+function dailyChart(ix0, ix1, iw, y, daily, col, name) {
+  if (!daily.length) return y;
+  const max = Math.max(1, ...daily.map(tokTotal));
+  text("日別トークン（入力＋出力・7日）", ix0, y, 10, C.sub);
+  text("最大 " + fmtTok(max), ix1, y, 9, C.sub, "normal", "right");
+  y += 19 * s;
+  const gh = (CFG.layout === "wide" ? 80 : 52) * s, n = daily.length, gw = iw / n, bw = Math.max(3, gw * 0.55);
+  ctx.fillStyle = C.graphBg; ctx.fillRect(ix0, y, iw, gh);
+  for (let i = 0; i < n; i++) {
+    const bx = ix0 + gw * i + gw / 2, v = tokTotal(daily[i]);
+    const h = (gh - 4) * v / max;
+    ctx.fillStyle = i === n - 1 ? col : col + "aa";
+    ctx.fillRect(bx - bw / 2, y + gh - h, bw, h);
+    text(daily[i].date.slice(5).replace("-", "/"), bx, y + gh + 3 * s, 9,
+         i === n - 1 ? C.text : C.sub, "normal", "center");
+  }
+  y += gh + 20 * s;
+  const today = tokTotal(daily[n - 1]);
+  const week = daily.reduce((a, r) => a + tokTotal(r), 0);
+  text(`今日 ${fmtTok(today)}`, ix0, y, 11, col, "bold");
+  text(`7日合計 ${fmtTok(week)}`, ix1, y, 11, C.sub, "normal", "right");
+  return y + 22 * s;
+}
+
+function drawAI(ix0, ix1, iw, y) {
+  const D = window.AI_USAGE || (S.demo ? (drawAI.demo ||= demoUsage()) : null);
+
+  // ===== Claude =====
+  y = sectionTitle(ix0, ix1, y, "Claude", [["利用枠・Claude Code", C.claude]]);
+  if (!D) {
+    text("ai_usage_start.bat を実行すると表示されます", ix0, y, 11, C.sub);
+    return y + 22 * s;
+  }
+  const cl = D.claude || {};
+  if (cl.error) {
+    text(cl.error, ix0, y, 10, C.warn);
+    y += 22 * s;
+  }
+  for (const L of (cl.limits || []).slice(0, 3)) {
+    const pct = Math.max(0, Math.min(100, L.pct));
+    const col = pct >= 90 ? C.warn : pct >= 70 ? C.gpu : C.claude;
+    const LBL = { extra_usage: "追加利用", seven_day_oauth_apps: "週間（連携アプリ）" };
+    text(LBL[L.label] || LBL[L.key] || L.label, ix0, y, 11, C.text);
+    text(`${pct.toFixed(0)}%`, ix1, y, 11, col, "bold", "right");
+    y += 19 * s;
+    ctx.fillStyle = C.track; rr(ix0, y, iw, 8 * s, 4 * s); ctx.fill();
+    if (pct > 0.5) { ctx.fillStyle = col; rr(ix0, y, iw * pct / 100, 8 * s, 4 * s); ctx.fill(); }
+    y += 11 * s;
+    text(fmtReset(L.resets_at), ix1, y, 9, C.sub, "normal", "right");
+    y += 18 * s;
+  }
+  y += 4 * s;
+  y = dailyChart(ix0, ix1, iw, y, cl.daily || [], C.claude, "Claude Code");
+
+  // ===== Gemini CLI =====
+  y += 6 * s;
+  y = sectionTitle(ix0, ix1, y, "Gemini CLI", [["トークン", C.gemini]]);
+  const gm = D.gemini || {};
+  const gd = gm.daily || [];
+  if (!gd.some(r => tokTotal(r) > 0) && !D.demo) {
+    text("記録が見つかりません（README の Gemini CLI 設定を参照）", ix0, y, 10, C.sub);
+    y += 20 * s;
+  }
+  y = dailyChart(ix0, ix1, iw, y, gd, C.gemini, "Gemini CLI");
+
+  text(`更新 ${D.updated || "-"}`, ix1, y, 9, C.sub, "normal", "right");
+  return y + 12 * s;
+}
+
+// ---------- ループ ----------
+let last = performance.now();
+function frame(t) {
+  requestAnimationFrame(frame);
+  if (t - last < 1000 / CFG.fps - 2) return;   // fps の上限で間引く
+  const dt = Math.min(0.1, (t - last) / 1000); last = t;
+  drawBackground(dt);
+  drawPanel();
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
